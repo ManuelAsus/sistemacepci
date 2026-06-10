@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Test jsPDF</title>
+</head>
+<body>
+    <h1>Test jsPDF Simple</h1>
+    <button onclick="testPDF()">Descargar PDF de Prueba</button>
+    
+    <script src="js/jspdf-simple.js"></script>
+    <script>
+        function testPDF() {
+            try {
+                const pdf = new jsPDF('portrait', 'mm', 'a4');
+                pdf.setFontSize(16);
+                pdf.setTextColor(140, 25, 54);
+                pdf.text('TEST PDF', 105, 20, { align: 'center' });
+                
+                pdf.setFontSize(12);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Este es un PDF de prueba', 20, 40);
+                
+                pdf.setDrawColor(140, 25, 54);
+                pdf.line(20, 50, 180, 50);
+                
+                pdf.text('Si ves esto, jsPDF funciona correctamente', 20, 60);
+                
+                pdf.save('test.pdf');
+                alert('PDF descargado correctamente');
+            } catch (e) {
+                alert('Error: ' + e.message + '\n\n' + e.stack);
+            }
+        }
+    </script>
+</body>
+</html>

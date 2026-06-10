@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Caja - CEPCI</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f7f7f7; }
+        .header { background: #8c1936; padding: 15px; color: white; font-size: 22px; font-weight: bold; display:flex;justify-content:space-between;align-items:center; }
+        .back { background: #CFB53B; padding: 10px 15px; border-radius: 8px; cursor:pointer; color:#8c1936; font-weight:bold; }
+        .back:hover { background:white; }
+        .container { margin: 30px auto; width:90%; max-width:800px; background:white; padding:25px; border-radius:15px; box-shadow:0 0 14px rgba(0,0,0,0.2); }
+        h2 { color:#001f54; text-align:center; margin-bottom:25px; }
+        label { font-weight:bold; color:#8c1936; display:block; margin-bottom:8px; }
+        input, select { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; font-size:15px; box-sizing:border-box; margin-bottom:15px; }
+        input:focus, select:focus { border-color:#CFB53B; box-shadow:0 0 6px #CFB53B; outline:none; }
+        .btn { padding:10px 14px; background:#8c1936; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
+        .btn:hover { background:#CFB53B; color:#8c1936; }
+        .msg { margin-top:12px; padding:10px; border-radius:6px; font-weight:bold; display:none; }
+        .msg.error { background:#ffebee; color:#c62828; }
+        .msg.success { background:#e8f5e9; color:#2e7d32; }
+        .hidden { display:none; }
+        .summary { background:#f9f9f9; padding:15px; border-radius:10px; margin-bottom:20px; }
+        .summary h3 { color:#8c1936; margin-top:0; }
+        .movement { border-bottom:1px solid #eee; padding:10px 0; }
+        .total { font-size:20px; font-weight:bold; color:#2e7d32; text-align:center; margin-top:20px; }
+    </style>
+    <script src="js/jspdf-simple.js"></script>
+    <script src="js/db.js"></script>
+    <script>
+        let currentUser = null;
+        let currentDate = null;
+
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const fecha = document.getElementById('fecha').value;
+            const hora = document.getElementById('hora').value;
+            const msg = document.getElementById('msg');
+
+            if (!username || !password || !fecha || !hora) {
+                msg.className = 'msg error';
+                msg.textContent = 'Todos los campos son obligatorios.';
+                msg.style.display = 'block';
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                const user = await obtenerUsuario(username);
+                if (!user || user.password !== password) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'Usuario o contraseña incorrectos.';
+                    msg.style.display = 'block';
+                    return;
+                }
+
+                // Verificar si la caja ya está cerrada
+                const sesion = await obtenerSesionPorFecha(fecha);
+                if (sesion && sesion.fecha_cierre) {
+                    if (!user.can_reopen) {
+                        msg.className = 'msg error';
+                        msg.textContent = 'La caja de esta fecha ya está cerrada y no tienes permisos para reabrirla.';
+                        msg.style.display = 'block';
+                        return;
+                    }
+                    // Reabrir
+                    sesion.fecha_cierre = null;
+                    await actualizarSesion(sesion);
+                } else if (!sesion) {
+                    // Crear nueva sesión
+                    const nuevaSesion = {
+                        fecha: fecha,
+                        fecha_apertura: new Date().toISOString(),
+                        usuario_apertura: username
+                    };
+                    await agregarSesion(nuevaSesion);
+                }
+
+                currentUser = user;
+                currentDate = fecha;
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('cajaView').classList.remove('hidden');
+                document.getElementById('fechaDisplay').textContent = fecha;
+                await loadResumen();
+            } catch (e) {
+                console.error(e);
+                msg.className = 'msg error';
+                msg.textContent = 'Error al iniciar sesión.';
+                msg.style.display = 'block';
+            }
+        }
+
+        async function loadResumen() {
+            try {
+                const movimientos = await cargarMovimientosPorFecha(currentDate);
+                const container = document.getElementById('movimientosContainer');
+                container.innerHTML = '';
+
+                let totalIngresos = 0;
+                let pagos = [];
+                let otrosIngresos = [];
+                let cancelaciones = [];
+                let adeudos = [];
+
+                movimientos.forEach(m => {
+                    if (m.tipo === 'pago') {
+                        pagos.push(m);
+                        totalIngresos += m.monto;
+                    } else if (m.tipo === 'otros') {
+                        otrosIngresos.push(m);
+                        totalIngresos += m.monto;
+                    } else if (m.tipo === 'cancelacion') {
+                        cancelaciones.push(m);
+                    } else if (m.tipo === 'adeudo') {
+                        adeudos.push(m);
+                    }
+                });
+
+                // Mostrar pagos
+                if (pagos.length > 0) {
+                    container.innerHTML += '<h3>Pagos Realizados</h3>';
+                    pagos.forEach(p => {
+                        container.innerHTML += `<div class="movement">${p.alumno_nombre} - $${p.monto.toFixed(2)} - ${new Date(p.timestamp).toLocaleString()}</div>`;
+                    });
+                }
+
+                if (otrosIngresos.length > 0) {
+                    container.innerHTML += '<h3>Otros Ingresos</h3>';
+                    otrosIngresos.forEach(o => {
+                        const concepto = o.observacion ? ` (${o.observacion})` : '';
+                        container.innerHTML += `<div class="movement">${o.alumno_nombre}${concepto} - $${o.monto.toFixed(2)} - ${new Date(o.timestamp).toLocaleString()}</div>`;
+                    });
+                }
+
+                // Mostrar cancelaciones
+                if (cancelaciones.length > 0) {
+                    container.innerHTML += '<h3>Cancelaciones</h3>';
+                    cancelaciones.forEach(c => {
+                        container.innerHTML += `<div class="movement">${c.alumno_nombre} - $${c.monto.toFixed(2)} - ${new Date(c.timestamp).toLocaleString()}</div>`;
+                    });
+                }
+
+                // Mostrar adeudos
+                if (adeudos.length > 0) {
+                    container.innerHTML += '<h3>Adeudos</h3>';
+                    adeudos.forEach(a => {
+                        container.innerHTML += `<div class="movement">${a.alumno_nombre} - ${new Date(a.timestamp).toLocaleString()}</div>`;
+                    });
+                }
+                // Mostrar alumnos con adeudos actuales
+                const alumnos = await cargarAlumnos();
+                const alumnosConAdeudos = alumnos.filter(a => (a.adeudos || 0) > 0);
+                if (alumnosConAdeudos.length > 0) {
+                    container.innerHTML += '<h3>Alumnos con Adeudos Pendientes</h3>';
+                    alumnosConAdeudos.forEach(a => {
+                        container.innerHTML += `<div class="movement">${a.nombre} - Adeudos: ${a.adeudos}</div>`;
+                    });
+                }
+                document.getElementById('totalIngresos').textContent = `$${totalIngresos.toFixed(2)}`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function cerrarCaja() {
+            if (!confirm('¿Está seguro de que desea cerrar la caja? No se podrá modificar después.')) return;
+            try {
+                const sesion = await obtenerSesionPorFecha(currentDate);
+                if (sesion) {
+                    sesion.fecha_cierre = new Date().toISOString();
+                    await actualizarSesion(sesion);
+                }
+                alert('Caja cerrada correctamente.');
+                location.reload();
+            } catch (e) {
+                console.error(e);
+                alert('Error al cerrar caja.');
+            }
+        }
+
+        async function descargarPDFResumen() {
+            try {
+                // Crear instancia de jsPDF
+                const pdf = new jsPDF('portrait', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                let yPos = 15;
+
+                // Encabezado
+                pdf.setFontSize(16);
+                pdf.setTextColor(140, 25, 54);
+                pdf.text('RESUMEN DE CAJA', pageWidth / 2, yPos, { align: 'center' });
+                yPos += 12;
+
+                // Fecha y hora
+                pdf.setFontSize(11);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text('Fecha: ' + currentDate + ' | Usuario: ' + currentUser.nombre, 15, yPos);
+                yPos += 10;
+
+                // Separador
+                pdf.setDrawColor(140, 25, 54);
+                pdf.line(15, yPos, pageWidth - 15, yPos);
+                yPos += 8;
+
+                // Cargar movimientos
+                const movimientos = await cargarMovimientosPorFecha(currentDate);
+                let totalIngresos = 0;
+                let pagos = [];
+                let otrosIngresos = [];
+                let cancelaciones = [];
+
+                movimientos.forEach(m => {
+                    if (m.tipo === 'pago') {
+                        pagos.push(m);
+                        totalIngresos += m.monto;
+                    } else if (m.tipo === 'otros') {
+                        otrosIngresos.push(m);
+                        totalIngresos += m.monto;
+                    } else if (m.tipo === 'cancelacion') {
+                        cancelaciones.push(m);
+                    }
+                });
+
+                // Sección de Pagos
+                if (pagos.length > 0) {
+                    pdf.setFontSize(12);
+                    pdf.setTextColor(140, 25, 54);
+                    pdf.text('PAGOS REALIZADOS', 15, yPos);
+                    yPos += 7;
+                    
+                    // Encabezados de columnas
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(100, 100, 100);
+                    pdf.text('Alumno', 15, yPos);
+                    pdf.text('Monto', 110, yPos);
+                    pdf.text('Fecha', 135, yPos);
+                    pdf.text('Hora', 170, yPos);
+                    yPos += 6;
+                    
+                    // Línea separadora
+                    pdf.setDrawColor(200, 200, 200);
+                    pdf.line(15, yPos, pageWidth - 15, yPos);
+                    yPos += 5;
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(9);
+
+                    pagos.forEach(p => {
+                        const fecha = new Date(p.timestamp).toLocaleDateString();
+                        const hora = new Date(p.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        
+                        if (yPos > pageHeight - 20) {
+                            pdf.addPage();
+                            yPos = 15;
+                            // Repetir encabezados en nueva página
+                            pdf.setFontSize(9);
+                            pdf.setTextColor(100, 100, 100);
+                            pdf.text('Alumno', 15, yPos);
+                            pdf.text('Monto', 110, yPos);
+                            pdf.text('Fecha', 135, yPos);
+                            pdf.text('Hora', 170, yPos);
+                            yPos += 6;
+                            pdf.setDrawColor(200, 200, 200);
+                            pdf.line(15, yPos, pageWidth - 15, yPos);
+                            yPos += 5;
+                            pdf.setTextColor(0, 0, 0);
+                        }
+                        
+                        // Nombre del alumno (truncado si es muy largo)
+                        let nombre = p.alumno_nombre || 'N/A';
+                        if (nombre.length > 30) nombre = nombre.substring(0, 27) + '...';
+                        pdf.text(nombre, 15, yPos);
+                        
+                        // Monto
+                        pdf.text('$' + p.monto.toFixed(2), 110, yPos);
+                        
+                        // Fecha
+                        pdf.text(fecha, 135, yPos);
+                        
+                        // Hora
+                        pdf.text(hora, 170, yPos);
+                        
+                        yPos += 6;
+                    });
+
+                    yPos += 4;
+                    pdf.setDrawColor(140, 25, 54);
+                    pdf.line(15, yPos, pageWidth - 15, yPos);
+                    yPos += 8;
+                }
+
+                if (otrosIngresos.length > 0) {
+                    pdf.setFontSize(12);
+                    pdf.setTextColor(140, 25, 54);
+                    pdf.text('OTROS INGRESOS', 15, yPos);
+                    yPos += 7;
+
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(100, 100, 100);
+                    pdf.text('Alumno', 15, yPos);
+                    pdf.text('Monto', 110, yPos);
+                    pdf.text('Concepto', 135, yPos);
+                    pdf.text('Hora', 170, yPos);
+                    yPos += 6;
+
+                    pdf.setDrawColor(200, 200, 200);
+                    pdf.line(15, yPos, pageWidth - 15, yPos);
+                    yPos += 5;
+
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(9);
+
+                    otrosIngresos.forEach(o => {
+                        const fecha = new Date(o.timestamp).toLocaleDateString();
+                        const hora = new Date(o.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        const concepto = o.observacion || 'Otros';
+                        
+                        if (yPos > pageHeight - 20) {
+                            pdf.addPage();
+                            yPos = 15;
+                            pdf.setFontSize(9);
+                            pdf.setTextColor(100, 100, 100);
+                            pdf.text('Alumno', 15, yPos);
+                            pdf.text('Monto', 110, yPos);
+                            pdf.text('Concepto', 135, yPos);
+                            pdf.text('Hora', 170, yPos);
+                            yPos += 6;
+                            pdf.setDrawColor(200, 200, 200);
+                            pdf.line(15, yPos, pageWidth - 15, yPos);
+                            yPos += 5;
+                            pdf.setTextColor(0, 0, 0);
+                        }
+
+                        let nombre = o.alumno_nombre || 'N/A';
+                        if (nombre.length > 30) nombre = nombre.substring(0, 27) + '...';
+                        pdf.text(nombre, 15, yPos);
+                        pdf.text('$' + o.monto.toFixed(2), 110, yPos);
+                        pdf.text(concepto.substring(0, 18), 135, yPos);
+                        pdf.text(hora, 170, yPos);
+                        yPos += 6;
+                    });
+
+                    yPos += 4;
+                    pdf.setDrawColor(140, 25, 54);
+                    pdf.line(15, yPos, pageWidth - 15, yPos);
+                    yPos += 8;
+                }
+                if (cancelaciones.length > 0) {
+                    pdf.setFontSize(12);
+                    pdf.setTextColor(140, 25, 54);
+                    pdf.text('CANCELACIONES', 15, yPos);
+                    yPos += 7;
+                    
+                    // Encabezados de columnas
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(100, 100, 100);
+                    pdf.text('Alumno', 15, yPos);
+                    pdf.text('Monto', 110, yPos);
+                    pdf.text('Fecha', 135, yPos);
+                    pdf.text('Hora', 170, yPos);
+                    yPos += 6;
+                    
+                    // Línea separadora
+                    pdf.setDrawColor(200, 200, 200);
+                    pdf.line(15, yPos, pageWidth - 15, yPos);
+                    yPos += 5;
+                    
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(9);
+
+                    cancelaciones.forEach(c => {
+                        const fecha = new Date(c.timestamp).toLocaleDateString();
+                        const hora = new Date(c.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        
+                        if (yPos > pageHeight - 20) {
+                            pdf.addPage();
+                            yPos = 15;
+                            // Repetir encabezados en nueva página
+                            pdf.setFontSize(9);
+                            pdf.setTextColor(100, 100, 100);
+                            pdf.text('Alumno', 15, yPos);
+                            pdf.text('Monto', 110, yPos);
+                            pdf.text('Fecha', 135, yPos);
+                            pdf.text('Hora', 170, yPos);
+                            yPos += 6;
+                            pdf.setDrawColor(200, 200, 200);
+                            pdf.line(15, yPos, pageWidth - 15, yPos);
+                            yPos += 5;
+                            pdf.setTextColor(0, 0, 0);
+                        }
+                        
+                        // Nombre del alumno
+                        let nombre = c.alumno_nombre || 'N/A';
+                        if (nombre.length > 30) nombre = nombre.substring(0, 27) + '...';
+                        pdf.text(nombre, 15, yPos);
+                        
+                        // Monto
+                        pdf.text('$' + c.monto.toFixed(2), 110, yPos);
+                        
+                        // Fecha
+                        pdf.text(fecha, 135, yPos);
+                        
+                        // Hora
+                        pdf.text(hora, 170, yPos);
+                        
+                        yPos += 6;
+                    });
+
+                    yPos += 4;
+                    pdf.setDrawColor(140, 25, 54);
+                    pdf.line(15, yPos, pageWidth - 15, yPos);
+                    yPos += 8;
+                }
+
+                // Total
+                yPos += 4;
+                pdf.setFontSize(13);
+                pdf.setTextColor(46, 125, 50);
+                pdf.text('TOTAL INGRESOS: $' + totalIngresos.toFixed(2), 15, yPos);
+                pdf.setTextColor(0, 0, 0);
+
+                // Descargar PDF
+                const nombreArchivo = 'Resumen_Caja_' + currentDate.replace(/-/g, '');
+                pdf.save(nombreArchivo + '.pdf');
+            } catch (e) {
+                console.error('Error generando PDF:', e);
+                alert('Error al generar PDF: ' + e.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('fecha').value = new Date().toISOString().split('T')[0];
+            document.getElementById('hora').value = new Date().toTimeString().split(' ')[0].substring(0,5);
+        });
+    </script>
+</head>
+<body>
+    <div class="header">
+        Caja - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div class="container">
+        <div id="loginForm">
+            <h2>Iniciar Sesión en Caja</h2>
+            <label>Usuario:</label>
+            <input type="text" id="username" />
+            <label>Contraseña:</label>
+            <input type="password" id="password" />
+            <label>Fecha:</label>
+            <input type="date" id="fecha" />
+            <label>Hora de Apertura:</label>
+            <input type="time" id="hora" />
+            <button class="btn" onclick="login()">Iniciar Sesión</button>
+            <div id="msg" class="msg"></div>
+        </div>
+
+        <div id="cajaView" class="hidden">
+            <h2>Resumen de Caja - <span id="fechaDisplay"></span></h2>
+            <div class="summary">
+                <h3>Total Ingresos del Día</h3>
+                <div class="total" id="totalIngresos">$0.00</div>
+            </div>
+            <div id="movimientosContainer"></div>
+            <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+                <button class="btn" onclick="descargarPDFResumen()" style="flex:1;min-width:150px;">📥 Descargar PDF</button>
+                <button class="btn" onclick="cerrarCaja()" style="flex:1;min-width:150px;">Cerrar Caja</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

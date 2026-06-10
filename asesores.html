@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Asesores - CEPCI</title>
+
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+        }
+
+        .header {
+            background: #8c1936;
+            padding: 15px;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back {
+            background: #CFB53B;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #8c1936;
+            font-weight: bold;
+        }
+
+        .back:hover {
+            background: white;
+        }
+
+        .container {
+            margin: 30px auto;
+            width: 95%;
+            max-width: 1000px;
+        }
+
+        .section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 14px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #001f54;
+            margin-top: 0;
+            border-bottom: 2px solid #8c1936;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #8c1936;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #8c1936;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #8c1936;
+            border-radius: 10px;
+            font-size: 15px;
+        }
+
+        input:focus, select:focus {
+            border-color: #CFB53B;
+            box-shadow: 0 0 6px #CFB53B;
+            outline: none;
+        }
+
+        .photo-group {
+            border: 2px dashed #8c1936;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 6px;
+            text-align: center;
+            background: #f9f9f9;
+        }
+
+        .photo-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin: 10px 0;
+            border: 2px solid #8c1936;
+        }
+
+        .photo-input {
+            display: none;
+        }
+
+        .photo-btn {
+            background: #8c1936;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
+        }
+
+        .photo-btn:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background: #8c1936;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .btn-small {
+            padding: 6px 10px;
+            font-size: 13px;
+            margin: 2px;
+        }
+
+        .btn-edit {
+            background: #001f54;
+        }
+
+        .btn-edit:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .btn-delete {
+            background: #d9534f;
+        }
+
+        .btn-delete:hover {
+            background: #c9302c;
+        }
+
+        .msg {
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .msg.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .msg.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+        }
+
+        .search-box button {
+            padding: 10px 20px;
+        }
+
+        .asesores-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .asesor-card {
+            background: #f9f9f9;
+            border: 2px solid #8c1936;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .asesor-card h4 {
+            color: #8c1936;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .asesor-info {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.8;
+        }
+
+        .asesor-photos {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .asesor-photos img {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid #8c1936;
+            cursor: pointer;
+        }
+
+        .asesor-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 15px;
+            width: 95%;
+            max-width: 600px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-modal:hover {
+            color: black;
+        }
+
+        .photo-modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+
+        .photo-modal-content {
+            margin: auto;
+            display: block;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        @media (max-width: 600px) {
+            .row-2 {
+                grid-template-columns: 1fr;
+            }
+            .asesores-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        Gestión de Asesores - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div class="container">
+        <!-- SECCIÓN 1: REGISTRAR NUEVO ASESOR -->
+        <div class="section">
+            <h2>📋 Registrar Nuevo Asesor</h2>
+
+            <form id="formAsesor" onsubmit="event.preventDefault(); registrarAsesor();">
+                
+                <div class="form-group">
+                    <label for="nombre">Nombre Completo:</label>
+                    <input type="text" id="nombre" placeholder="Nombre completo del asesor" required />
+                </div>
+
+                <div class="row-2">
+                    <div class="form-group">
+                        <label for="edad">Edad:</label>
+                        <input type="number" id="edad" min="1" max="120" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="sexo">Sexo:</label>
+                        <select id="sexo" required>
+                            <option value="">Seleccione…</option>
+                            <option value="Masculino">Masculino</option>
+                            <option value="Femenino">Femenino</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="fechaNacimiento">Fecha de Nacimiento:</label>
+                    <input type="date" id="fechaNacimiento" />
+                </div>
+
+                <div class="form-group">
+                    <label for="domicilio">Domicilio:</label>
+                    <input type="text" id="domicilio" placeholder="Dirección completa" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="telefono">Número de Teléfono:</label>
+                    <input type="text" id="telefono" placeholder="Ejemplo: 999 999 9999" required />
+                </div>
+
+                <!-- Fotos -->
+                <div class="form-group">
+                    <label>Foto INE Anverso (frontal):</label>
+                    <div class="photo-group">
+                        <input type="file" id="fotoINEAnverso" class="photo-input" accept="image/*" />
+                        <img id="previewINEAnverso" class="photo-preview" style="display:none;" />
+                        <button type="button" class="photo-btn" onclick="document.getElementById('fotoINEAnverso').click()">Seleccionar foto</button>
+                        <div id="labelINEAnverso" style="margin-top:8px; color:#555; font-size:13px;"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Foto INE Reverso (trasera):</label>
+                    <div class="photo-group">
+                        <input type="file" id="fotoINEReverso" class="photo-input" accept="image/*" />
+                        <img id="previewINEReverso" class="photo-preview" style="display:none;" />
+                        <button type="button" class="photo-btn" onclick="document.getElementById('fotoINEReverso').click()">Seleccionar foto</button>
+                        <div id="labelINEReverso" style="margin-top:8px; color:#555; font-size:13px;"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Foto del Asesor (Selfie):</label>
+                    <div class="photo-group">
+                        <input type="file" id="fotoAsesor" class="photo-input" accept="image/*" />
+                        <img id="previewAsesor" class="photo-preview" style="display:none;" />
+                        <button type="button" class="photo-btn" onclick="document.getElementById('fotoAsesor').click()">Seleccionar foto</button>
+                        <div id="labelAsesor" style="margin-top:8px; color:#555; font-size:13px;"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">Registrar Asesor</button>
+                <div id="msg" class="msg" style="display:none;"></div>
+            </form>
+        </div>
+
+        <!-- SECCIÓN 2: LISTA DE ASESORES -->
+        <div class="section">
+            <h2>👥 Asesores Registrados</h2>
+
+            <div class="search-box">
+                <input type="text" id="buscar" placeholder="Buscar asesor por nombre..." />
+                <button onclick="buscarAsesores()" class="btn">Buscar</button>
+            </div>
+
+            <div id="asesorList" class="asesores-list"></div>
+            <div id="msgList" style="margin-top:20px; text-align:center; color:#555;"></div>
+        </div>
+    </div>
+
+    <!-- Modal de Edición -->
+    <div id="modalEditar" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="cerrarModal()">&times;</span>
+            <h3>Editar Asesor</h3>
+            <form id="formEditar" onsubmit="event.preventDefault(); guardarCambios();">
+                <input type="hidden" id="editId" />
+
+                <div class="form-group">
+                    <label>Nombre Completo:</label>
+                    <input type="text" id="editNombre" required />
+                </div>
+
+                <div class="row-2">
+                    <div class="form-group">
+                        <label>Edad:</label>
+                        <input type="number" id="editEdad" min="1" max="120" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Sexo:</label>
+                        <select id="editSexo" required>
+                            <option value="">Seleccione…</option>
+                            <option value="Masculino">Masculino</option>
+                            <option value="Femenino">Femenino</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Domicilio:</label>
+                    <input type="text" id="editDomicilio" required />
+                </div>
+
+                <div class="form-group">
+                    <label>Teléfono:</label>
+                    <input type="text" id="editTelefono" required />
+                </div>
+
+                <button type="submit" class="btn">Guardar Cambios</button>
+                <div id="msgModal" class="msg" style="display:none; margin-top:10px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Foto -->
+    <div id="photoModal" class="photo-modal" onclick="cerrarFotoModal()">
+        <img id="photoModalImg" class="photo-modal-content" />
+    </div>
+
+    <script src="js/db.js"></script>
+    <script>
+        // Protección: si no inició sesión, regresar
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        // Previsualización de fotos en registro
+        ['fotoINEAnverso', 'fotoINEReverso', 'fotoAsesor'].forEach(id => {
+            document.getElementById(id).addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        const previewId = id.replace('foto', 'preview');
+                        const labelId = id.replace('foto', 'label');
+                        document.getElementById(previewId).src = evt.target.result;
+                        document.getElementById(previewId).style.display = 'block';
+                        document.getElementById(labelId).textContent = file.name;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        });
+
+        // Cargar lista de asesores al abrir
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Calcular edad automáticamente cuando cambia fecha de nacimiento
+            const calculaEdadAutomatica = () => {
+                const fechaNacInput = document.getElementById('fechaNacimiento');
+                const edadInput = document.getElementById('edad');
+                if (fechaNacInput && edadInput) {
+                    const fecha = fechaNacInput.value;
+                    if (fecha) {
+                        const edad = calcularEdad(fecha);
+                        if (edad !== null && edad >= 0) {
+                            edadInput.value = edad;
+                        }
+                    }
+                }
+            };
+            
+            const fechaNacInput = document.getElementById('fechaNacimiento');
+            if (fechaNacInput) {
+                // Eventos change e input para capturar cambios del calendario y escritura manual
+                fechaNacInput.addEventListener('change', calculaEdadAutomatica);
+                fechaNacInput.addEventListener('input', calculaEdadAutomatica);
+            }
+            
+            await cargarListaAsesores();
+        });
+
+        async function registrarAsesor() {
+            const nombre = document.getElementById('nombre').value.trim();
+            const edad = document.getElementById('edad').value;
+            const sexo = document.getElementById('sexo').value;
+            const fechaNacimiento = document.getElementById('fechaNacimiento').value;
+            const domicilio = document.getElementById('domicilio').value.trim();
+            const telefono = document.getElementById('telefono').value.trim();
+            const msg = document.getElementById('msg');
+
+            if (!nombre || !edad || !sexo || !domicilio || !telefono) {
+                msg.style.display = 'block';
+                msg.classList.add('error');
+                msg.classList.remove('success');
+                msg.textContent = '❌ Todos los campos obligatorios deben completarse.';
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+
+                const fileINEAnverso = document.getElementById('fotoINEAnverso').files[0];
+                const fileINEReverso = document.getElementById('fotoINEReverso').files[0];
+                const fileAsesor = document.getElementById('fotoAsesor').files[0];
+
+                const nuevoAsesor = {
+                    nombre,
+                    edad: parseInt(edad),
+                    sexo,
+                    fecha_nacimiento: fechaNacimiento,
+                    domicilio,
+                    telefono,
+                    fecha_registro: new Date().toISOString()
+                };
+
+                const savedAsesor = await agregarAsesor(nuevoAsesor);
+
+                if (fileINEAnverso) {
+                    await guardarImagen(`asesor_${savedAsesor.id}_ine_anverso`, fileINEAnverso);
+                }
+                if (fileINEReverso) {
+                    await guardarImagen(`asesor_${savedAsesor.id}_ine_reverso`, fileINEReverso);
+                }
+                if (fileAsesor) {
+                    await guardarImagen(`asesor_${savedAsesor.id}_foto`, fileAsesor);
+                }
+
+                msg.style.display = 'block';
+                msg.classList.add('success');
+                msg.classList.remove('error');
+                msg.textContent = '✔ Asesor registrado correctamente (ID: ' + savedAsesor.id + ')';
+
+                document.getElementById('formAsesor').reset();
+                ['previewINEAnverso', 'previewINEReverso', 'previewAsesor'].forEach(id => {
+                    document.getElementById(id).style.display = 'none';
+                });
+                ['labelINEAnverso', 'labelINEReverso', 'labelAsesor'].forEach(id => {
+                    document.getElementById(id).textContent = '';
+                });
+
+                setTimeout(() => {
+                    msg.style.display = 'none';
+                    cargarListaAsesores();
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                msg.style.display = 'block';
+                msg.classList.add('error');
+                msg.classList.remove('success');
+                msg.textContent = '❌ Error al guardar asesor: ' + error.message;
+            }
+        }
+
+        async function cargarListaAsesores() {
+            try {
+                await initIndexedDB();
+                const asesores = await cargarAsesores();
+                mostrarAsesores(asesores);
+            } catch (error) {
+                console.error('Error cargando asesores:', error);
+            }
+        }
+
+        async function buscarAsesores() {
+            const query = document.getElementById('buscar').value.toLowerCase().trim();
+            try {
+                await initIndexedDB();
+                const asesores = await cargarAsesores();
+                const filtrados = asesores.filter(a => a.nombre.toLowerCase().includes(query));
+                mostrarAsesores(filtrados);
+            } catch (error) {
+                console.error('Error buscando:', error);
+            }
+        }
+
+        async function mostrarAsesores(asesores) {
+            const container = document.getElementById('asesorList');
+            const msgList = document.getElementById('msgList');
+
+            if (asesores.length === 0) {
+                container.innerHTML = '';
+                msgList.textContent = 'No hay asesores registrados.';
+                return;
+            }
+
+            msgList.textContent = '';
+            container.innerHTML = asesores.map(asesor => `
+                <div class="asesor-card">
+                    <h4>${asesor.nombre}</h4>
+                    <div class="asesor-info">
+                        <strong>ID:</strong> ${asesor.id}<br/>
+                        <strong>Edad:</strong> ${asesor.edad}<br/>
+                        <strong>Sexo:</strong> ${asesor.sexo}<br/>
+                        <strong>Domicilio:</strong> ${asesor.domicilio}<br/>
+                        <strong>Teléfono:</strong> ${asesor.telefono}<br/>
+                        <strong>Registrado:</strong> ${new Date(asesor.fecha_registro).toLocaleDateString()}
+                    </div>
+                    <div class="asesor-photos" id="photos_${asesor.id}"></div>
+                    <div class="asesor-actions">
+                        <button class="btn btn-small btn-edit" onclick="abrirEditar(${asesor.id})">✏️ Editar</button>
+                        <button class="btn btn-small btn-delete" onclick="eliminarAsesorConfirm(${asesor.id})">🗑️ Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Cargar fotos
+            for (const asesor of asesores) {
+                const photosDiv = document.getElementById(`photos_${asesor.id}`);
+                const urls = [];
+
+                const ineAnverso = await obtenerImagen(`asesor_${asesor.id}_ine_anverso`);
+                if (ineAnverso) {
+                    urls.push({ src: ineAnverso, label: 'INE F.' });
+                }
+
+                const ineReverso = await obtenerImagen(`asesor_${asesor.id}_ine_reverso`);
+                if (ineReverso) {
+                    urls.push({ src: ineReverso, label: 'INE T.' });
+                }
+
+                const foto = await obtenerImagen(`asesor_${asesor.id}_foto`);
+                if (foto) {
+                    urls.push({ src: foto, label: 'Selfie' });
+                }
+
+                if (urls.length > 0) {
+                    photosDiv.innerHTML = urls.map(u => 
+                        `<img src="${u.src}" title="${u.label}" onclick="verFoto('${u.src}')" />`
+                    ).join('');
+                }
+            }
+        }
+
+        async function abrirEditar(id) {
+            try {
+                await initIndexedDB();
+                const asesor = await obtenerAsesorPorId(id);
+                if (!asesor) {
+                    alert('Asesor no encontrado');
+                    return;
+                }
+
+                document.getElementById('editId').value = id;
+                document.getElementById('editNombre').value = asesor.nombre;
+                document.getElementById('editEdad').value = asesor.edad;
+                document.getElementById('editSexo').value = asesor.sexo;
+                document.getElementById('editDomicilio').value = asesor.domicilio;
+                document.getElementById('editTelefono').value = asesor.telefono;
+
+                document.getElementById('modalEditar').style.display = 'block';
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al abrir editor');
+            }
+        }
+
+        async function guardarCambios() {
+            const id = parseInt(document.getElementById('editId').value);
+            const nombre = document.getElementById('editNombre').value.trim();
+            const edad = parseInt(document.getElementById('editEdad').value);
+            const sexo = document.getElementById('editSexo').value;
+            const domicilio = document.getElementById('editDomicilio').value.trim();
+            const telefono = document.getElementById('editTelefono').value.trim();
+            const msgModal = document.getElementById('msgModal');
+
+            if (!nombre || !edad || !sexo || !domicilio || !telefono) {
+                msgModal.style.display = 'block';
+                msgModal.classList.add('error');
+                msgModal.classList.remove('success');
+                msgModal.textContent = '❌ Todos los campos son obligatorios.';
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                const asesor = await obtenerAsesorPorId(id);
+                asesor.nombre = nombre;
+                asesor.edad = edad;
+                asesor.sexo = sexo;
+                asesor.domicilio = domicilio;
+                asesor.telefono = telefono;
+
+                await actualizarAsesor(asesor);
+
+                msgModal.style.display = 'block';
+                msgModal.classList.add('success');
+                msgModal.classList.remove('error');
+                msgModal.textContent = '✔ Cambios guardados correctamente.';
+
+                setTimeout(() => {
+                    cerrarModal();
+                    cargarListaAsesores();
+                }, 1200);
+
+            } catch (error) {
+                console.error('Error:', error);
+                msgModal.style.display = 'block';
+                msgModal.classList.add('error');
+                msgModal.classList.remove('success');
+                msgModal.textContent = '❌ Error al guardar: ' + error.message;
+            }
+        }
+
+        async function eliminarAsesorConfirm(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar este asesor?')) return;
+            try {
+                await initIndexedDB();
+                await eliminarAsesor(id);
+                // También eliminar las imágenes asociadas
+                await new Promise(res => {
+                    const tx = db.transaction(['imagenes'], 'readwrite');
+                    const store = tx.objectStore('imagenes');
+                    ['ine_anverso', 'ine_reverso', 'foto'].forEach(suffix => {
+                        store.delete(`asesor_${id}_${suffix}`);
+                    });
+                    tx.oncomplete = res;
+                });
+                alert('✔ Asesor eliminado correctamente.');
+                cargarListaAsesores();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error al eliminar: ' + error.message);
+            }
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalEditar').style.display = 'none';
+        }
+
+        function verFoto(src) {
+            document.getElementById('photoModal').style.display = 'block';
+            document.getElementById('photoModalImg').src = src;
+        }
+
+        function cerrarFotoModal() {
+            document.getElementById('photoModal').style.display = 'none';
+        }
+
+        // Cerrar modal al hacer click fuera
+        window.onclick = function(event) {
+            const modal = document.getElementById('modalEditar');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administrador - CEPCI</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f7f7f7; }
+        .header { background: #8c1936; padding: 15px; color: white; font-size: 22px; font-weight: bold; display:flex;justify-content:space-between;align-items:center; }
+        .back { background: #CFB53B; padding: 10px 15px; border-radius: 8px; cursor:pointer; color:#8c1936; font-weight:bold; }
+        .back:hover { background:white; }
+        .container { margin: 30px auto; width:90%; max-width:800px; background:white; padding:25px; border-radius:15px; box-shadow:0 0 14px rgba(0,0,0,0.2); }
+        h2 { color:#001f54; text-align:center; margin-bottom:25px; }
+        label { font-weight:bold; color:#8c1936; display:block; margin-bottom:8px; }
+        input, select { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; font-size:15px; box-sizing:border-box; margin-bottom:15px; }
+        input:focus, select:focus { border-color:#CFB53B; box-shadow:0 0 6px #CFB53B; outline:none; }
+        .btn { padding:10px 14px; background:#8c1936; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
+        .btn:hover { background:#CFB53B; color:#8c1936; }
+        .msg { margin-top:12px; padding:10px; border-radius:6px; font-weight:bold; display:none; }
+        .msg.error { background:#ffebee; color:#c62828; }
+        .msg.success { background:#e8f5e9; color:#2e7d32; }
+        .user-list { margin-top:20px; }
+        .user-item { background:#f9f9f9; padding:10px; border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+    </style>
+    <script src="js/db.js"></script>
+    <script>
+        // módulos disponibles en dashboard para permisos
+        const modules = ['registroalumnos','veralumnos','maestros','materias','asesores','grupos','calificaciones','pagos','definircostosypagos','inventario','caja','listas','copiadeseguridad','importar','informacion','otros'];
+        const moduleLabels = {
+            registroalumnos:'Registro de Alumnos',
+            veralumnos:'Ver Alumnos',
+            maestros:'Maestros',
+            materias:'Materias',
+            asesores:'Asesores',
+            grupos:'Grupos',
+            calificaciones:'Calificaciones',
+            pagos:'Pagos',
+            definircostosypagos:'Definir Costos',
+            inventario:'Inventario',
+            caja:'Caja',
+            listas:'Listas',
+            copiadeseguridad:'Copias',
+            importar:'Importar DB',
+            informacion:'Información Escolar',
+            otros:'Otros'
+        };
+
+        async function crearUsuario() {
+            const nombre = document.getElementById('newNombre').value.trim();
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const canReopen = document.getElementById('canReopen').checked;
+            const msg = document.getElementById('msg');
+
+            if (!username || !password) {
+                msg.className = 'msg error';
+                msg.textContent = 'Usuario y contraseña son obligatorios.';
+                msg.style.display = 'block';
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                const existing = await obtenerUsuario(username);
+                if (existing) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'El usuario ya existe.';
+                    msg.style.display = 'block';
+                    return;
+                }
+
+                const user = { nombre, username, password, can_reopen: canReopen, is_admin: false };
+                await agregarUsuario(user);
+                msg.className = 'msg success';
+                msg.textContent = 'Usuario agregado correctamente.';
+                msg.style.display = 'block';
+                document.getElementById('newNombre').value = '';
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('canReopen').checked = false;
+                loadUsuarios();
+            } catch (e) {
+                console.error(e);
+                msg.className = 'msg error';
+                msg.textContent = 'Error al agregar usuario.';
+                msg.style.display = 'block';
+            }
+        }
+
+        async function loadUsuarios() {
+            try {
+                const usuarios = await cargarUsuarios();
+                const container = document.getElementById('usuariosContainer');
+                container.innerHTML = '';
+                usuarios.forEach(u => {
+                    container.innerHTML += `<div class="user-item" data-username="${u.username}">
+                        <div>
+                            <strong>${u.nombre || u.username}</strong> (${u.username})<br>
+                            <label><input type="checkbox" ${u.can_reopen ? 'checked' : ''} onchange="updatePermiso(this.closest('.user-item').dataset.username, this.checked)"> Puede reabrir caja</label>
+                        </div>
+                        <button class="btn" onclick="eliminarUsuarioCaja(this.closest('.user-item').dataset.username)">Eliminar</button>
+                    </div>`;
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function updatePermiso(username, canReopen) {
+            try {
+                const user = await obtenerUsuario(username);
+                if (user) {
+                    user.can_reopen = canReopen;
+                    await actualizarUsuario(user);
+                    loadUsuarios();
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al actualizar permiso.');
+            }
+        }
+
+        async function eliminarUsuarioCaja(username) {
+            if (!confirm(`¿Eliminar usuario ${username}?`)) return;
+            try {
+                await eliminarUsuario(username);
+                loadUsuarios();
+            } catch (e) {
+                console.error(e);
+                alert('Error al eliminar usuario.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOMContentLoaded en administrador.html');
+            await initIndexedDB();
+            console.log('DB inicializada en administrador.html');
+            loadUsuarios();
+            loadUsuariosLogin().catch(e => console.error('DOMContentLoaded loadUsuariosLogin failed', e));
+        });
+
+        async function crearUsuarioLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const msg = document.getElementById('msgLogin');
+
+            // preparar permisos por defecto (todos permitidos)
+            const defaultPerms = {};
+            modules.forEach(m => defaultPerms[m] = true);
+
+            if (!username || !password) {
+                msg.className = 'msg error';
+                msg.textContent = 'Usuario y contraseña son obligatorios.';
+                msg.style.display = 'block';
+                return;
+            }
+
+            if (password.length < 8) {
+                msg.className = 'msg error';
+                msg.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+                msg.style.display = 'block';
+                return;
+            }
+
+            try {
+                console.log('crearUsuarioLogin: inicializando DB');
+                await initIndexedDB();
+                console.log('crearUsuarioLogin: DB inicializada');
+                const existing = await obtenerUsuarioLogin(username);
+                console.log('crearUsuarioLogin: existente?', existing);
+                if (existing) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'El usuario de login ya existe.';
+                    msg.style.display = 'block';
+                    return;
+                }
+
+                console.log('crearUsuarioLogin: llamando agregarUsuarioLogin');
+                await agregarUsuarioLogin({ username, password, permissions: defaultPerms });
+                console.log('crearUsuarioLogin: usuario agregado exitosamente');
+                msg.className = 'msg success';
+                msg.textContent = 'Usuario de login agregado correctamente.';
+                msg.style.display = 'block';
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+                loadUsuariosLogin();
+            } catch (e) {
+                console.error('crearUsuarioLogin error', e);
+                msg.className = 'msg error';
+                msg.textContent = 'Error al agregar usuario: ' + (e.message || e);
+                msg.style.display = 'block';
+            }
+        }
+
+        async function loadUsuariosLogin() {
+            try {
+                console.log('loadUsuariosLogin: solicitando lista');
+                const usuarios = await cargarUsuariosLogin();
+                console.log('loadUsuariosLogin: resultados', usuarios);
+                const container = document.getElementById('usuariosLoginContainer');
+                container.innerHTML = '';
+                usuarios.forEach(u => {
+                    const perms = u.permissions || {};
+                    container.innerHTML += `<div class="user-item">
+                        <div>
+                            <strong>${u.username}</strong><br>
+                            ${modules.map(m => `<label><input type="checkbox" ${perms[m] === true ? 'checked' : ''} onchange="togglePermissionLogin(this.closest('.user-item').querySelector('strong').textContent.trim(), '${m}', this.checked)"> ${moduleLabels[m] || m}</label>`).join('<br>')}
+                        </div>
+                        <div style="margin-top:10px;">
+                            <button class="btn" style="background:#4CAF50; margin-right:5px;" onclick="setAllPermissions(this.closest('.user-item').querySelector('strong').textContent.trim(), true)">Activar Todos</button>
+                            <button class="btn" style="background:#f44336; margin-right:5px;" onclick="setAllPermissions(this.closest('.user-item').querySelector('strong').textContent.trim(), false)">Desactivar Todos</button>
+                            <button class="btn" style="background:#d32f2f;" onclick="eliminarUsuarioLoginConfirm(this.closest('.user-item').querySelector('strong').textContent.trim())">Eliminar</button>
+                        </div>
+                    </div>`;
+                });
+            } catch (e) {
+                console.error('loadUsuariosLogin error', e);
+                const container = document.getElementById('usuariosLoginContainer');
+                if (container) {
+                    container.innerHTML = '<p style="color:red;">Error al cargar usuarios: ' + (e.message || e) + '</p>';
+                }
+            }
+        }
+
+        async function eliminarUsuarioLoginConfirm(username) {
+            if (username === 'AdminCepci01') {
+                alert('No puedes eliminar el usuario administrativo por defecto.');
+                return;
+            }
+            if (!confirm(`¿Eliminar usuario de login ${username}?`)) return;
+            try {
+                await eliminarUsuarioLogin(username);
+                loadUsuariosLogin();
+            } catch (e) {
+                console.error(e);
+                alert('Error al eliminar usuario: ' + (e.message || e));
+            }
+        }
+
+        // actualizar permiso individual
+        async function togglePermissionLogin(username, module, allowed) {
+            try {
+                const user = await obtenerUsuarioLogin(username);
+                if (!user) return;
+                user.permissions = user.permissions || {};
+                user.permissions[module] = allowed;
+                await actualizarUsuarioLogin(user);
+                console.log('Permiso actualizado', username, module, allowed);
+                // si modificamos permisos del usuario activo, actualizar la sesión
+                const current = sessionStorage.getItem('usuario');
+                if (current === username) {
+                    // recargar permisos en sessionStorage
+                    sessionStorage.setItem('permissions', JSON.stringify(user.permissions || {}));
+                    // recargar dashboard si estamos allí para ocultar tarjetas deshabilitadas
+                    if (window.location.pathname.endsWith('dashboard.html')) {
+                        location.reload();
+                    }
+                    // si permiso revocado en módulo actual, forzar logout
+                    const path = window.location.pathname.split('/').pop();
+                    const mod = PAGE_MODULE_MAP[path];
+                    if (mod && user.permissions[mod] === false) {
+                        alert('Tu permiso para este módulo ha sido revocado. Se cerrará la sesión.');
+                        sessionStorage.clear();
+                        window.location.href = 'index.html';
+                    }
+                }
+                // refrescar la lista para mostrar el estado actualizado
+                loadUsuariosLogin();
+            } catch (e) {
+                console.error('togglePermissionLogin error', e);
+                alert('Error al actualizar permiso: ' + (e.message || e));
+                // refrescar la lista en caso de error para revertir cambios visuales
+                loadUsuariosLogin();
+            }
+        }
+
+        // activar o desactivar todos los permisos de un usuario
+        async function setAllPermissions(username, allowed) {
+            try {
+                const user = await obtenerUsuarioLogin(username);
+                if (!user) return;
+                user.permissions = user.permissions || {};
+                modules.forEach(m => user.permissions[m] = allowed);
+                await actualizarUsuarioLogin(user);
+                console.log('Todos los permisos actualizados', username, allowed);
+                // si modificamos permisos del usuario activo, actualizar la sesión
+                const current = sessionStorage.getItem('usuario');
+                if (current === username) {
+                    // recargar permisos en sessionStorage
+                    sessionStorage.setItem('permissions', JSON.stringify(user.permissions || {}));
+                    // recargar dashboard si estamos allí para ocultar tarjetas deshabilitadas
+                    if (window.location.pathname.endsWith('dashboard.html')) {
+                        location.reload();
+                    }
+                    // si permisos revocados en módulo actual, forzar logout
+                    const path = window.location.pathname.split('/').pop();
+                    const mod = PAGE_MODULE_MAP[path];
+                    if (mod && user.permissions[mod] === false) {
+                        alert('Tus permisos para este módulo han sido revocados. Se cerrará la sesión.');
+                        sessionStorage.clear();
+                        window.location.href = 'index.html';
+                    }
+                }
+                // refrescar la lista para mostrar el estado actualizado
+                loadUsuariosLogin();
+            } catch (e) {
+                console.error('setAllPermissions error', e);
+                alert('Error al actualizar permisos: ' + (e.message || e));
+                // refrescar la lista en caso de error para revertir cambios visuales
+                loadUsuariosLogin();
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="header">
+        Administrador - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div id="adminContent">
+        <div class="container">
+            <h2>Gestión de Usuarios para Caja</h2>
+            <label>Nombre completo:</label>
+            <input type="text" id="newNombre" />
+            <label>Usuario:</label>
+            <input type="text" id="newUsername" />
+            <label>Contraseña:</label>
+            <input type="password" id="newPassword" />
+            <label><input type="checkbox" id="canReopen" /> Puede reabrir caja</label>
+            <button class="btn" onclick="crearUsuario()">Agregar Usuario</button>
+            <div id="msg" class="msg"></div>
+
+            <div class="user-list">
+                <h3>Usuarios Existentes</h3>
+                <div id="usuariosContainer"></div>
+            </div>
+        </div>
+
+        <div class="container" style="margin-top: 30px;">
+            <h2>Gestión de Usuarios para Login del Sistema</h2>
+            <p style="color:#666; margin-bottom: 15px;">Agrega nuevos usuarios que puedan acceder al sistema desde la pantalla de login.</p>
+            
+            <label>Usuario:</label>
+            <input type="text" id="loginUsername" placeholder="Ejemplo: Admin2" />
+            <label>Contraseña:</label>
+            <input type="password" id="loginPassword" placeholder="Mínimo 8 caracteres" />
+            <button class="btn" onclick="crearUsuarioLogin()">Agregar Usuario de Login</button>
+            <div id="msgLogin" class="msg"></div>
+
+            <div class="user-list">
+                <h3>Usuarios de Login del Sistema</h3>
+                <div id="usuariosLoginContainer"></div>
+            </div>
+        </div>
+
+        <div class="container" style="margin-top: 30px;">
+
+            <div style="background: #ffebee; border: 2px solid #d32f2f; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                <h3 style="color: #c62828; margin-top: 0;">⚠️ Zona Peligrosa - Opciones Administrativas</h3>
+                <p style="color: #555; margin-bottom: 15px;">Estas opciones afectan todo el sistema. Úsalas con cuidado.</p>
+                <button class="btn" style="background: #d32f2f;" onclick="resetearSistemaCompleto()">🔄 Resetear Sistema Completamente</button>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">Borra TODOS los datos (alumnos, maestros, materias, usuarios, caja, imágenes, configuraciones). Use este botón después de hacer un respaldo si desea empezar de nuevo con el sistema limpio.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

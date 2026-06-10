@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ver Maestros - CEPCI</title>
+
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f7f7f7; }
+        .header { background: #8c1936; padding: 15px; color: white; font-size: 22px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .back { background: #CFB53B; padding: 10px 15px; border-radius: 8px; cursor: pointer; color: #8c1936; font-weight: bold; }
+        .back:hover { background: white; }
+        .container { margin: 30px auto; width: 95%; max-width: 1200px; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 0 14px rgba(0,0,0,0.2); }
+        h2 { color: #001f54; text-align: center; margin-bottom: 25px; }
+
+        .maestros-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+
+        .maestro-card { background: #f9f9f9; border: 2px solid #8c1936; border-radius: 12px; padding: 16px; box-shadow: 0 0 8px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:8px; }
+        .maestro-card h3 { color: #8c1936; margin: 0 0 6px 0; font-size:18px; }
+        .maestro-info { font-size: 14px; color: #001f54; margin: 4px 0; }
+        .maestro-label { font-weight: bold; color: #8c1936; margin-right:6px; }
+
+        .fotos-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+        .foto-item { text-align: center; }
+        .foto-item img { max-width: 100%; max-height: 84px; border-radius: 8px; cursor: pointer; border: 2px solid #8c1936; object-fit:cover; }
+        .foto-item p { font-size: 12px; color: #8c1936; margin: 6px 0 0 0; }
+
+        .btn-group { display:flex; gap:10px; margin-top: 12px; }
+        .btn { flex:1; padding:10px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:14px; }
+        .btn-edit { background:#CFB53B; color:#8c1936; }
+        .btn-edit:hover { background:#b8961f; color:white; }
+        .btn-delete { background:#d32f2f; color:white; }
+        .btn-delete:hover { background:#b71c1c; }
+
+        .empty { text-align:center; color:#8c1936; font-size:18px; padding:40px; }
+
+        /* Modal styles (same as before, slightly compacted) */
+        .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color: rgba(0,0,0,0.6); }
+        .modal-content { background:white; margin:5% auto; padding:20px; border-radius:12px; width:90%; max-width:720px; max-height:90vh; overflow-y:auto; box-shadow:0 0 20px rgba(0,0,0,0.25); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:2px solid #8c1936; padding-bottom:10px; }
+        .close { font-size:26px; font-weight:bold; color:#8c1936; cursor:pointer; }
+        .close:hover { color:#CFB53B; }
+        label { font-weight:bold; color:#8c1936; display:block; margin-top:12px; margin-bottom:6px; }
+        input, select { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; font-size:14px; box-sizing:border-box; margin-bottom:8px; }
+        input:focus, select:focus { border-color:#CFB53B; box-shadow:0 0 6px #CFB53B; outline:none; }
+        .preview-img { max-width:120px; max-height:120px; margin-top:8px; border-radius:8px; display:none; border:2px solid #8c1936; object-fit:cover; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .modal-btn { width:100%; padding:12px; background:#8c1936; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; margin-top:12px; }
+        .modal-btn:hover { background:#CFB53B; color:#8c1936; }
+        .msg { margin-top:10px; text-align:center; font-weight:bold; min-height:18px; }
+
+        /* Image viewer modal */
+        .image-modal { display:none; position:fixed; z-index:1001; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.85); }
+        .image-modal-content { margin:auto; display:block; width:80%; max-width:700px; margin-top:4%; }
+        .image-modal img { width:100%; border-radius:8px; }
+        .image-close { position:absolute; top:18px; right:28px; color:white; font-size:36px; font-weight:bold; cursor:pointer; }
+        .image-close:hover { color:#CFB53B; }
+
+        @media (max-width:600px) {
+            .fotos-container { grid-template-columns: repeat(3, 1fr); }
+            .form-row { grid-template-columns:1fr; }
+        }
+    </style>
+
+    <!-- IndexedDB helper -->
+    <script src="js/db.js"></script>
+
+    <script>
+        // Protección
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        let maestroEditandoId = null;
+
+        // Utility: get image URL from IndexedDB (or fallback to base64 stored directly on maestro)
+        async function imageUrlFor(maestro, keyIdName, legacyFieldName) {
+            // keyIdName example: 'fotografia_id'
+            // legacyFieldName example: 'fotografia' (base64)
+            if (maestro[keyIdName]) {
+                try {
+                    const url = await obtenerImagen(maestro[keyIdName]);
+                    if (url) return url;
+                } catch (e) {
+                    console.warn('obtenerImagen falló para', maestro[keyIdName], e);
+                }
+            }
+            if (maestro[legacyFieldName]) {
+                return maestro[legacyFieldName]; // base64 or url already
+            }
+            return null;
+        }
+
+        async function mostrarMaestros() {
+            try {
+                await initIndexedDB();
+                const maestros = await cargarMaestros();
+                const container = document.getElementById("lista");
+
+                if (!maestros || maestros.length === 0) {
+                    container.innerHTML = '<div class="empty">No hay maestros registrados.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                for (const maestro of maestros) {
+                    const card = document.createElement('div');
+                    card.className = 'maestro-card';
+
+                    const nombre = maestro.nombre || '-';
+                    const id = maestro.id !== undefined ? maestro.id : '';
+                    const curp = maestro.curp || '-';
+                    const rfc = maestro.rfc || '-';
+                    const edad = maestro.edad || '-';
+                    const sexo = maestro.sexo || '-';
+                    const fecha = maestro.fecha_nacimiento || '-';
+                    const direccion = maestro.direccion || '-';
+
+                    // Create fotos (get URLs asynchronously)
+                    const fotoUrl = await imageUrlFor(maestro, 'fotografia_id', 'fotografia');
+                    const ineAUrl = await imageUrlFor(maestro, 'ine_anverso_id', 'ine_anverso');
+                    const ineRUrl = await imageUrlFor(maestro, 'ine_reverso_id', 'ine_reverso');
+
+                    card.innerHTML = `
+                        <h3>${escapeHtml(nombre)}</h3>
+                        <div class="maestro-info"><span class="maestro-label">ID:</span> ${escapeHtml(String(id))}</div>
+                        <div class="maestro-info"><span class="maestro-label">CURP:</span> ${escapeHtml(curp)}</div>
+                        <div class="maestro-info"><span class="maestro-label">RFC:</span> ${escapeHtml(rfc)}</div>
+                        <div class="maestro-info"><span class="maestro-label">Edad:</span> ${escapeHtml(String(edad))} años</div>
+                        <div class="maestro-info"><span class="maestro-label">Sexo:</span> ${escapeHtml(sexo)}</div>
+                        <div class="maestro-info"><span class="maestro-label">Fecha de Nacimiento:</span> ${escapeHtml(fecha)}</div>
+                        <div class="maestro-info"><span class="maestro-label">Dirección:</span> ${escapeHtml(direccion)}</div>
+                        <div class="fotos-container">
+                            <div class="foto-item">
+                                <img src="${fotoUrl || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}" alt="Foto" data-src="${fotoUrl || ''}" onclick="verImagenFromCard(this)" />
+                                <p>Fotografía</p>
+                            </div>
+                            <div class="foto-item">
+                                <img src="${ineAUrl || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}" alt="INE Anverso" data-src="${ineAUrl || ''}" onclick="verImagenFromCard(this)" />
+                                <p>INE Anverso</p>
+                            </div>
+                            <div class="foto-item">
+                                <img src="${ineRUrl || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}" alt="INE Reverso" data-src="${ineRUrl || ''}" onclick="verImagenFromCard(this)" />
+                                <p>INE Reverso</p>
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-edit" data-id="${escapeHtml(String(id))}" onclick="abrirEditar('${escapeHtml(String(id))}')">Editar</button>
+                            <button class="btn btn-delete" onclick="eliminarMaestroById('${escapeHtml(String(id))}')">Eliminar</button>
+                        </div>
+                    `;
+
+                    container.appendChild(card);
+                }
+            } catch (e) {
+                console.error('Error mostrando maestros:', e);
+                document.getElementById("lista").innerHTML = `<div class="empty">Error cargando maestros: ${escapeHtml(e.message || e)}</div>`;
+            }
+        }
+
+        // Open edit modal by maestro.id
+        async function abrirEditar(id) {
+            try {
+                await initIndexedDB();
+                const maestros = await cargarMaestros();
+                const maestro = maestros.find(m => String(m.id) === String(id));
+                if (!maestro) {
+                    alert('Maestro no encontrado.');
+                    return;
+                }
+                maestroEditandoId = maestro.id;
+
+                document.getElementById("editId").value = maestro.id;
+                document.getElementById("editNombre").value = maestro.nombre || '';
+                document.getElementById("editCurp").value = maestro.curp || '';
+                document.getElementById("editRfc").value = maestro.rfc || '';
+                document.getElementById("editEdad").value = maestro.edad || '';
+                document.getElementById("editSexo").value = maestro.sexo || '';
+                document.getElementById("editFechaNacimiento").value = maestro.fecha_nacimiento || '';
+                // recalcular edad si fecha disponible
+                if (maestro.fecha_nacimiento) {
+                    const calc = calcularEdad(maestro.fecha_nacimiento);
+                    if (calc !== null) document.getElementById("editEdad").value = calc;
+                }
+                document.getElementById("editDireccion").value = maestro.direccion || '';
+
+                // previews: try obtenerImagen, else check legacy base64 fields
+                const fotoUrl = await imageUrlFor(maestro, 'fotografia_id', 'fotografia');
+                const ineAUrl = await imageUrlFor(maestro, 'ine_anverso_id', 'ine_anverso');
+                const ineRUrl = await imageUrlFor(maestro, 'ine_reverso_id', 'ine_reverso');
+
+                const pF = document.getElementById("previewEditFoto");
+                const pA = document.getElementById("previewEditIneAnverso");
+                const pR = document.getElementById("previewEditIneReverso");
+
+                if (fotoUrl) { pF.src = fotoUrl; pF.style.display = 'block'; } else { pF.src=''; pF.style.display='none'; }
+                if (ineAUrl) { pA.src = ineAUrl; pA.style.display = 'block'; } else { pA.src=''; pA.style.display='none'; }
+                if (ineRUrl) { pR.src = ineRUrl; pR.style.display = 'block'; } else { pR.src=''; pR.style.display='none'; }
+
+                document.getElementById("editModal").style.display = "block";
+            } catch (e) {
+                console.error('abrirEditar error', e);
+                alert('Error al abrir editor: ' + (e.message || e));
+            }
+        }
+
+        function cerrarModal() {
+            document.getElementById("editModal").style.display = "none";
+            maestroEditandoId = null;
+            document.getElementById("msgEdit").textContent = '';
+            // reset file inputs
+            ['editFotografia','editIneAnverso','editIneReverso'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+        }
+
+        // Preview helper for modal file inputs
+        function previewEditFile(inputEl, previewId) {
+            const preview = document.getElementById(previewId);
+            if (!inputEl || !preview) return;
+            const file = inputEl.files && inputEl.files[0];
+            if (!file) {
+                preview.src=''; preview.style.display='none'; return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => { preview.src = e.target.result; preview.style.display='block'; };
+            reader.readAsDataURL(file);
+        }
+
+        async function guardarCambios() {
+            const id = document.getElementById("editId").value;
+            const nombre = document.getElementById("editNombre").value.trim();
+            const curp = document.getElementById("editCurp").value.trim();
+            const rfc = document.getElementById("editRfc").value.trim();
+            const sexo = document.getElementById("editSexo").value;
+            const fechaNacimiento = document.getElementById("editFechaNacimiento").value;
+            // si no se ingresó edad manualmente, calcularla a partir de la fecha
+            let edad = document.getElementById("editEdad").value.trim();
+            if ((!edad || edad === '') && fechaNacimiento) {
+                const calc = calcularEdad(fechaNacimiento);
+                if (calc !== null) edad = calc;
+            }
+            const direccion = document.getElementById("editDireccion").value.trim();
+            const fotografiaFile = document.getElementById("editFotografia").files[0];
+            const ineAnversoFile = document.getElementById("editIneAnverso").files[0];
+            const ineReversoFile = document.getElementById("editIneReverso").files[0];
+            const msg = document.getElementById("msgEdit");
+
+            if (!id || !nombre) {
+                msg.style.color = "red";
+                msg.textContent = "ID y nombre son obligatorios.";
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                // Load maestro record
+                const maestros = await cargarMaestros();
+                const maestro = maestros.find(m => String(m.id) === String(id));
+                if (!maestro) {
+                    msg.style.color = "red";
+                    msg.textContent = "Maestro no encontrado en la base de datos.";
+                    return;
+                }
+
+                // Update fields
+                maestro.nombre = nombre;
+                maestro.curp = curp;
+                maestro.rfc = rfc;
+                maestro.edad = edad;
+                maestro.sexo = sexo;
+                maestro.fecha_nacimiento = fechaNacimiento;
+                maestro.direccion = direccion;
+
+                // If new files selected, store them in 'imagenes' store using guardarImagen(id, Blob)
+                // Keep same key naming convention as registration: maestro_<id>_foto etc.
+                const fotoKey = `maestro_${id}_foto`;
+                const ineAKey = `maestro_${id}_ine_anverso`;
+                const ineRKey = `maestro_${id}_ine_reverso`;
+
+                if (fotografiaFile) {
+                    await guardarImagen(fotoKey, fotografiaFile);
+                    maestro.fotografia_id = fotoKey;
+                }
+                if (ineAnversoFile) {
+                    await guardarImagen(ineAKey, ineAnversoFile);
+                    maestro.ine_anverso_id = ineAKey;
+                }
+                if (ineReversoFile) {
+                    await guardarImagen(ineRKey, ineReversoFile);
+                    maestro.ine_reverso_id = ineRKey;
+                }
+
+                await actualizarMaestro(maestro);
+
+                msg.style.color = "green";
+                msg.textContent = "Maestro actualizado correctamente ✔";
+
+                setTimeout(() => {
+                    cerrarModal();
+                    mostrarMaestros();
+                }, 900);
+            } catch (e) {
+                console.error('guardarCambios error', e);
+                msg.style.color = "red";
+                msg.textContent = "Error al guardar: " + (e.message || e);
+            }
+        }
+
+        async function eliminarMaestroById(id) {
+            if (!confirm("¿Está seguro de que desea eliminar este maestro?")) return;
+            try {
+                await initIndexedDB();
+                await eliminarMaestro(id);
+                // Optionally: could also remove images from 'imagenes' store, not implemented.
+                mostrarMaestros();
+            } catch (e) {
+                console.error('eliminarMaestro error', e);
+                alert('Error al eliminar: ' + (e.message || e));
+            }
+        }
+
+        // Open image modal from card img element
+        function verImagenFromCard(imgEl) {
+            const src = imgEl.getAttribute('data-src') || imgEl.src;
+            if (!src) return;
+            const modal = document.getElementById("imageModal");
+            const modalImg = document.getElementById("modalImage");
+            modalImg.src = src;
+            modal.style.display = "block";
+        }
+
+        function cerrarImagenModal() {
+            document.getElementById("imageModal").style.display = "none";
+            document.getElementById("modalImage").src = '';
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const editModal = document.getElementById("editModal");
+            const imageModal = document.getElementById("imageModal");
+            if (event.target === editModal) cerrarModal();
+            if (event.target === imageModal) cerrarImagenModal();
+        };
+
+        // Escape helper
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Init and show on load
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                await initIndexedDB();
+            } catch (e) {
+                console.error('Error initIndexedDB en vermaestros:', e);
+            }
+            mostrarMaestros();
+
+            // edad automática en el modal al cambiar fecha de nacimiento
+            const calcAuto = (dateEl, ageEl) => {
+                if (!dateEl || !ageEl) return;
+                const fecha = dateEl.value;
+                if (fecha) {
+                    const edad = calcularEdad(fecha);
+                    if (edad !== null && edad >= 0) {
+                        ageEl.value = edad;
+                    }
+                }
+            };
+            const dateInput = document.getElementById('editFechaNacimiento');
+            const ageInput = document.getElementById('editEdad');
+            if (dateInput && ageInput) {
+                dateInput.addEventListener('change', () => calcAuto(dateInput, ageInput));
+                dateInput.addEventListener('input', () => calcAuto(dateInput, ageInput));
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <div class="header">
+        Ver Maestros - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div class="container">
+        <h2>Maestros Registrados</h2>
+        <div id="lista" class="maestros-list"></div>
+    </div>
+
+    <!-- Modal de Edición -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Maestro</h3>
+                <span class="close" onclick="cerrarModal()">&times;</span>
+            </div>
+
+            <input type="hidden" id="editId" />
+            <label>Nombre</label>
+            <input id="editNombre" />
+
+            <div class="form-row">
+                <div>
+                    <label>CURP</label>
+                    <input id="editCurp" />
+                </div>
+                <div>
+                    <label>RFC</label>
+                    <input id="editRfc" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Edad</label>
+                    <input id="editEdad" type="number" min="18" />
+                </div>
+                <div>
+                    <label>Sexo</label>
+                    <select id="editSexo"><option value="">Seleccione…</option><option value="Masculino">Masculino</option><option value="Femenino">Femenino</option><option value="Otro">Otro</option></select>
+                </div>
+            </div>
+
+            <label>Fecha de Nacimiento</label>
+            <input id="editFechaNacimiento" type="date" />
+
+            <label>Dirección</label>
+            <input id="editDireccion" />
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px;">
+                <div>
+                    <label>Fotografía (reemplazar)</label>
+                    <input id="editFotografia" type="file" accept="image/*" onchange="previewEditFile(this,'previewEditFoto')" />
+                    <img id="previewEditFoto" class="preview-img" style="display:none" />
+                </div>
+                <div>
+                    <label>INE Anverso (reemplazar)</label>
+                    <input id="editIneAnverso" type="file" accept="image/*" onchange="previewEditFile(this,'previewEditIneAnverso')" />
+                    <img id="previewEditIneAnverso" class="preview-img" style="display:none" />
+                </div>
+            </div>
+
+            <div style="margin-top:8px;">
+                <label>INE Reverso (reemplazar)</label>
+                <input id="editIneReverso" type="file" accept="image/*" onchange="previewEditFile(this,'previewEditIneReverso')" />
+                <img id="previewEditIneReverso" class="preview-img" style="display:none" />
+            </div>
+
+            <button class="modal-btn" onclick="guardarCambios()">Guardar Cambios</button>
+            <div id="msgEdit" class="msg"></div>
+        </div>
+    </div>
+
+    <!-- Image viewer modal -->
+    <div id="imageModal" class="image-modal">
+        <span class="image-close" onclick="cerrarImagenModal()">&times;</span>
+        <div class="image-modal-content">
+            <img id="modalImage" src="" alt="">
+        </div>
+    </div>
+
+</body>
+</html>

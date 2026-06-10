@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Grupos - CEPCI</title>
+    <style>
+        body { margin:0; font-family:Arial, sans-serif; background:#f7f7f7; }
+        .header { background:#8c1936; padding:15px; color:white; font-size:22px; display:flex; justify-content:space-between; align-items:center; }
+        .back { background:#CFB53B; padding:8px 12px; border-radius:8px; color:#8c1936; font-weight:bold; cursor:pointer; }
+        .container { margin:20px auto; width:95%; max-width:1200px; background:white; padding:20px; border-radius:12px; box-shadow:0 0 14px rgba(0,0,0,0.1); }
+        form { display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start; }
+        label { font-weight:bold; color:#8c1936; display:block; margin-bottom:6px; }
+        input:not([type="checkbox"]), select { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; box-sizing:border-box; font-size:14px; }
+        .full { grid-column:1 / -1; }
+        .btn { padding:12px; background:#8c1936; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; }
+        .btn.secondary { background:#CFB53B; color:#8c1936; }
+
+        /* Alumnos selection cards */
+        .alumnos-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:10px; margin-top:10px; }
+        .alumno-checkbox { background:white; border:2px solid #ddd; border-radius:10px; padding:12px; cursor:pointer; transition:.2s; display:flex; flex-direction:column; gap:6px; }
+        .alumno-checkbox:hover { border-color:#8c1936; }
+        .alumno-checkbox input[type="checkbox"]:checked + .alumno-info { color:#8c1936; font-weight:bold; }
+        .alumno-checkbox input[type="checkbox"]:checked { accent-color:#8c1936; }
+        .alumno-checkbox input[type="checkbox"] { cursor:pointer; }
+        .alumno-info { font-size:13px; color:#001f54; }
+
+        .groups-list { margin-top:20px; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px,1fr)); gap:14px; }
+        .group-card { background:#f9f9f9; border:2px solid #8c1936; border-radius:10px; padding:12px; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+        .group-title { font-size:16px; color:#8c1936; font-weight:bold; margin-bottom:8px; }
+        .group-meta { font-size:13px; color:#001f54; margin-bottom:6px; }
+        .progress { height:18px; background:#eee; border-radius:8px; overflow:hidden; margin:8px 0; position:relative; }
+        .progress-bar { height:100%; background:#8c1936; width:0%; transition:width .6s ease; display:flex; align-items:center; justify-content:center; }
+        .progress-text { position:absolute; width:100%; text-align:center; color:#333; font-size:12px; font-weight:bold; line-height:18px; }
+        .small { font-size:13px; color:#333; }
+        .actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+        .action-btn { flex:1; min-width:70px; padding:8px; border-radius:8px; border:none; font-weight:bold; cursor:pointer; font-size:12px; }
+        .edit { background:#CFB53B; color:#8c1936; }
+        .view { background:#1976d2; color:white; }
+        .del { background:#d32f2f; color:white; }
+        .msg { margin-top:10px; padding:8px; border-radius:6px; font-weight:bold; min-height:16px; }
+
+        /* Modal */
+        .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.6); overflow-y:auto; }
+        .modal-content { background:white; margin:20px auto; padding:25px; border-radius:15px; width:90%; max-width:800px; box-shadow:0 0 20px rgba(0,0,0,0.3); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:2px solid #8c1936; padding-bottom:15px; }
+        .modal-header h3 { color:#001f54; margin:0; }
+        .close { font-size:28px; font-weight:bold; color:#8c1936; cursor:pointer; }
+        .close:hover { color:#CFB53B; }
+        .modal-body { max-height:600px; overflow-y:auto; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px; }
+        .form-row.full { grid-column:1/-1; }
+        .modal-btn { width:100%; padding:12px; background:#8c1936; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; margin-top:15px; }
+        .modal-btn:hover { background:#CFB53B; color:#8c1936; }
+        .modal-msg { margin-top:10px; padding:8px; border-radius:6px; font-weight:bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        Grupos - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div class="container">
+        <h2>Crear / Administrar Grupos</h2>
+
+        <form id="formGrupo" onsubmit="event.preventDefault(); crearGrupo();">
+            <div>
+                <label for="nombreGrupo">Nombre del Grupo</label>
+                <input id="nombreGrupo" type="text" placeholder="Ej: Grupo A - Sábado 8" required />
+            </div>
+
+            <div>
+                <label for="horarioGrupo">Horario / Turno</label>
+                <select id="horarioGrupo" required>
+                    <option value="">Seleccione un horario…</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="fechaInicio">Fecha oficial de inicio</label>
+                <input id="fechaInicio" type="date" required />
+            </div>
+
+            <div>
+                <label for="maestroGrupo">Maestro encargado</label>
+                <select id="maestroGrupo" required>
+                    <option value="">Seleccione un maestro…</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="materiaGrupo">Materia</label>
+                <select id="materiaGrupo" required>
+                    <option value="">Seleccione una materia…</option>
+                </select>
+            </div>
+
+            <div class="full">
+                <label for="alumnosGrupo">Seleccione alumnos (filtra por horario)</label>
+                <div id="alumnosGrupo" class="alumnos-grid"></div>
+                <div class="small" style="margin-top:8px;">Haz clic en los alumnos para seleccionarlos (aparecen según el horario elegido)</div>
+            </div>
+
+            <div class="full" style="display:flex; gap:8px;">
+                <button type="submit" class="btn">Crear Grupo</button>
+                <button type="button" class="btn secondary" onclick="sincronizarTodos()">Sincronizar contador</button>
+                <button type="button" class="btn secondary" onclick="limpiarFormulario()">Limpiar</button>
+            </div>
+            <div id="msgGrupo" class="msg"></div>
+        </form>
+
+        <h3 style="margin-top:18px;">Grupos existentes</h3>
+        <div id="listaGrupos" class="groups-list" aria-live="polite"></div>
+    </div>
+
+    <!-- Modal de Edición de Grupo -->
+    <div id="editGrupoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Grupo</h3>
+                <span class="close" onclick="cerrarModalEditar()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div>
+                        <label>Nombre del Grupo</label>
+                        <input id="editNombreGrupo" type="text" />
+                    </div>
+                    <div>
+                        <label>Horario</label>
+                        <select id="editHorarioGrupo">
+                            <option value="SÁBADO 8 AM - 12 PM">SÁBADO 8 AM - 12 PM</option>
+                            <option value="SÁBADO 12 PM - 4 PM">SÁBADO 12 PM - 4 PM</option>
+                            <option value="DOMINGO 8 AM - 12 PM">DOMINGO 8 AM - 12 PM</option>
+                            <option value="DOMINGO 12 PM - 4 PM">DOMINGO 12 PM - 4 PM</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>Fecha oficial de inicio</label>
+                        <input id="editFechaInicio" type="date" />
+                    </div>
+                    <div>
+                        <label>Maestro encargado</label>
+                        <select id="editMaestroGrupo"></select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div>
+                        <label>Materia</label>
+                        <select id="editMateriaGrupo"></select>
+                    </div>
+                </div>
+
+                <div class="form-row full">
+                    <label>Alumnos del grupo (seleccione para agregar/remover)</label>
+                    <div id="editAlumnosGrupo" class="alumnos-grid"></div>
+                </div>
+
+                <button class="modal-btn" onclick="guardarCambiosGrupo()">Guardar Cambios</button>
+                <div id="msgEditGrupo" class="modal-msg"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver alumnos del grupo -->
+    <div id="verAlumnosModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Alumnos del Grupo</h3>
+                <span class="close" onclick="cerrarModalAlumnos()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="listaAlumnosGrupo"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script>
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        let grupoEditandoId = null;
+
+        function escapeHtml(str) {
+            if (!str && str !== 0) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function sesionesTranscurridas(startDateISO) {
+            if (!startDateISO) return 0;
+            const start = new Date(startDateISO);
+            const today = new Date();
+            start.setHours(0,0,0,0);
+            today.setHours(0,0,0,0);
+            if (today < start) return 0;
+            const diffDays = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+            const weeks = Math.floor(diffDays / 7);
+            return 1 + weeks;
+        }
+
+        async function initPage() {
+            try {
+                await initIndexedDB();
+                await cargarYRenderizarSelects();
+                await mostrarGrupos();
+            } catch (e) {
+                console.error('Error initPage:', e);
+            }
+        }
+
+        // Función para obtener el siguiente número de grupo
+        async function obtenerSiguienteNumeroGrupo() {
+            const grupos = await cargarGrupos();
+            let maxNum = 0;
+            
+            grupos.forEach(g => {
+                // Buscar patrones como "GRUPO 1", "Grupo 2", "grupo 3", etc.
+                const match = String(g.nombre || '').match(/^GRUPO\s*(\d+)$/i);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (num > maxNum) maxNum = num;
+                }
+            });
+            
+            return maxNum + 1;
+        }
+
+        async function cargarYRenderizarSelects() {
+            // Horarios
+            const horarios = await cargarHorarios();
+            const selHorario = document.getElementById('horarioGrupo');
+            const selEditHorario = document.getElementById('editHorarioGrupo');
+            selHorario.innerHTML = '<option value="">Seleccione un horario…</option>';
+            selEditHorario.innerHTML = '';
+            horarios.forEach(h => {
+                const o1 = document.createElement('option');
+                o1.value = h.nombre;
+                o1.textContent = h.nombre;
+                selHorario.appendChild(o1);
+                const o2 = document.createElement('option');
+                o2.value = h.nombre;
+                o2.textContent = h.nombre;
+                selEditHorario.appendChild(o2);
+            });
+
+            // Maestros
+            const maestros = await cargarMaestros();
+            const selMaestro = document.getElementById('maestroGrupo');
+            const selEditMaestro = document.getElementById('editMaestroGrupo');
+            selMaestro.innerHTML = '<option value="">Seleccione un maestro…</option>';
+            selEditMaestro.innerHTML = '';
+            maestros.forEach(m => {
+                const o1 = document.createElement('option');
+                o1.value = m.id;
+                o1.textContent = `${m.nombre || 'Sin nombre'} (ID:${m.id})`;
+                selMaestro.appendChild(o1);
+                const o2 = document.createElement('option');
+                o2.value = m.id;
+                o2.textContent = `${m.nombre || 'Sin nombre'} (ID:${m.id})`;
+                selEditMaestro.appendChild(o2);
+            });
+
+            // Materias
+            const materias = await cargarMaterias();
+            const selMateria = document.getElementById('materiaGrupo');
+            const selEditMateria = document.getElementById('editMateriaGrupo');
+            selMateria.innerHTML = '<option value="">Seleccione una materia…</option>';
+            selEditMateria.innerHTML = '';
+            materias.forEach(m => {
+                const o1 = document.createElement('option');
+                o1.value = m.id;
+                o1.textContent = `${m.nombre || 'Sin nombre'} (${m.duracion || '0'} clases)`;
+                selMateria.appendChild(o1);
+                const o2 = document.createElement('option');
+                o2.value = m.id;
+                o2.textContent = `${m.nombre || 'Sin nombre'} (${m.duracion || '0'} clases)`;
+                selEditMateria.appendChild(o2);
+            });
+
+            // Autocompletar nombre del grupo con el siguiente número
+            const siguienteNumero = await obtenerSiguienteNumeroGrupo();
+            document.getElementById('nombreGrupo').value = 'GRUPO ' + siguienteNumero;
+
+            // Cargar alumnos inicial
+            await renderAlumnosList();
+            // Recargar cuando cambie horario
+            document.getElementById('horarioGrupo').addEventListener('change', renderAlumnosList);
+        }
+
+        async function renderAlumnosList() {
+            try {
+                const alumnos = await cargarAlumnos();
+                const horario = document.getElementById('horarioGrupo').value;
+                const contenedor = document.getElementById('alumnosGrupo');
+                contenedor.innerHTML = '';
+
+                // Obtener alumnos ya asignados
+                const grupos = await cargarGrupos();
+                const asignadosSet = new Set();
+                grupos.forEach(g => {
+                    (g.alumno_ids || []).forEach(id => asignadosSet.add(Number(id)));
+                });
+
+                // Filtrar
+                const filtered = (horario ? alumnos.filter(a => String(a.horario) === String(horario)) : alumnos)
+                    .filter(a => !asignadosSet.has(Number(a.id)));
+
+                if (!filtered || filtered.length === 0) {
+                    contenedor.innerHTML = '<div class="small" style="grid-column:1/-1; padding:20px; text-align:center; color:#999;">No hay alumnos disponibles para este horario</div>';
+                    return;
+                }
+
+                filtered.forEach(a => {
+                    const label = document.createElement('label');
+                    label.className = 'alumno-checkbox';
+                    label.innerHTML = `
+                        <input type="checkbox" name="alumnoCheck" value="${a.id}" />
+                        <div class="alumno-info">
+                            <strong>${escapeHtml(a.nombre)}</strong><br/>
+                            Código: ${escapeHtml(a.codigo || a.id)} • ${escapeHtml(a.matricula || '—')}
+                        </div>
+                    `;
+                    contenedor.appendChild(label);
+                });
+            } catch (e) {
+                console.error('Error renderAlumnosList:', e);
+                document.getElementById('alumnosGrupo').innerHTML = '<div class="small" style="color:red;">Error cargando alumnos</div>';
+            }
+        }
+
+        async function renderAlumnosEditModal(grupoId) {
+            try {
+                const grupo = await obtenerGrupoPorId(grupoId);
+                const alumnos = await cargarAlumnos();
+                const grupos = await cargarGrupos();
+                const contenedor = document.getElementById('editAlumnosGrupo');
+                contenedor.innerHTML = '';
+
+                // Alumnos ya asignados a otros grupos (no se pueden agregar)
+                const otrosAsignadosSet = new Set();
+                grupos.forEach(g => {
+                    if (Number(g.id) !== Number(grupoId)) {
+                        (g.alumno_ids || []).forEach(id => otrosAsignadosSet.add(Number(id)));
+                    }
+                });
+
+                const grupoAlumnoIds = new Set((grupo.alumno_ids || []).map(Number));
+
+                alumnos.forEach(a => {
+                    const esDelGrupo = grupoAlumnoIds.has(Number(a.id));
+                    const esOtroGrupo = otrosAsignadosSet.has(Number(a.id));
+
+                    const label = document.createElement('label');
+                    label.className = 'alumno-checkbox';
+                    label.style.opacity = esOtroGrupo && !esDelGrupo ? '0.5' : '1';
+                    label.innerHTML = `
+                        <input type="checkbox" name="alumnoEditCheck" value="${a.id}" ${esDelGrupo ? 'checked' : ''} ${esOtroGrupo && !esDelGrupo ? 'disabled' : ''} />
+                        <div class="alumno-info">
+                            <strong>${escapeHtml(a.nombre)}</strong><br/>
+                            Código: ${escapeHtml(a.codigo || a.id)} • ${escapeHtml(a.matricula || '—')}
+                            ${esOtroGrupo && !esDelGrupo ? '<br/><em style="color:#ff6b6b;">(En otro grupo)</em>' : ''}
+                        </div>
+                    `;
+                    contenedor.appendChild(label);
+                });
+            } catch (e) {
+                console.error('Error renderAlumnosEditModal:', e);
+                document.getElementById('editAlumnosGrupo').innerHTML = '<div class="small" style="color:red;">Error cargando alumnos</div>';
+            }
+        }
+
+        async function crearGrupo() {
+            const nombre = document.getElementById('nombreGrupo').value.trim();
+            const horario = document.getElementById('horarioGrupo').value;
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const maestroVal = document.getElementById('maestroGrupo').value;
+            const materiaVal = document.getElementById('materiaGrupo').value;
+            
+            console.log('DEBUG - maestroVal:', maestroVal, 'tipo:', typeof maestroVal);
+            console.log('DEBUG - materiaVal:', materiaVal, 'tipo:', typeof materiaVal);
+            
+            const msg = document.getElementById('msgGrupo');
+
+            msg.textContent = '';
+
+            // Validar campos básicos
+            if (!nombre) {
+                msg.style.color = 'red';
+                msg.textContent = 'Por favor ingresa el nombre del grupo.';
+                return;
+            }
+            if (!horario) {
+                msg.style.color = 'red';
+                msg.textContent = 'Por favor selecciona un horario.';
+                return;
+            }
+            if (!fechaInicio) {
+                msg.style.color = 'red';
+                msg.textContent = 'Por favor selecciona una fecha de inicio.';
+                return;
+            }
+            if (!maestroVal || maestroVal === '') {
+                msg.style.color = 'red';
+                msg.textContent = 'Por favor selecciona un maestro.';
+                return;
+            }
+            if (!materiaVal || materiaVal === '') {
+                msg.style.color = 'red';
+                msg.textContent = 'Por favor selecciona una materia.';
+                return;
+            }
+
+            // Obtener alumnos seleccionados (ahora es opcional)
+            const selected = Array.from(document.querySelectorAll('input[name="alumnoCheck"]:checked'))
+                .map(cb => parseInt(cb.value));
+
+            // Ya no es obligatorio seleccionar alumnos para crear el grupo
+            // Los alumnos se pueden agregar después desde "Ver Alumnos"
+
+            try {
+                const materias = await cargarMaterias();
+                const materia = materias.find(m => String(m.id) === String(materiaVal));
+                const duracion = materia ? parseInt(materia.duracion || 0) : 0;
+
+                const inicialClases = sesionesTranscurridas(fechaInicio);
+                const clasesInicialGuardadas = Math.min(inicialClases, duracion || Infinity);
+
+                const grupo = {
+                    nombre,
+                    horario,
+                    fecha_inicio: fechaInicio,
+                    maestro_id: maestroVal,
+                    materia_id: materiaVal,
+                    alumno_ids: selected || [], // Ahora puede estar vacío
+                    clases_completadas: clasesInicialGuardadas,
+                    creado_en: new Date().toISOString()
+                };
+
+                console.log('DEBUG - grupo a guardar:', grupo);
+                await agregarGrupo(grupo);
+                msg.style.color = 'green';
+                msg.textContent = '✔ Grupo creado correctamente.';
+                document.getElementById('formGrupo').reset();
+                // Autocompletar el siguiente número de grupo
+                const siguienteNumero = await obtenerSiguienteNumeroGrupo();
+                document.getElementById('nombreGrupo').value = 'GRUPO ' + siguienteNumero;
+                await cargarYRenderizarSelects();
+                await mostrarGrupos();
+                setTimeout(() => msg.textContent = '', 3000);
+            } catch (e) {
+                console.error('Error crearGrupo:', e);
+                msg.style.color = 'red';
+                msg.textContent = 'Error: ' + (e.message || e);
+            }
+        }
+
+        async function mostrarGrupos() {
+            const cont = document.getElementById('listaGrupos');
+            cont.innerHTML = '';
+            try {
+                const grupos = await cargarGrupos();
+                if (!grupos || grupos.length === 0) {
+                    cont.innerHTML = '<div class="group-card">No hay grupos registrados.</div>';
+                    return;
+                }
+
+                const maestros = await cargarMaestros();
+                const materias = await cargarMaterias();
+                const alumnos = await cargarAlumnos();
+
+                grupos.forEach(g => {
+                    // Buscar materia - comparar como string
+                    const materia = materias.find(m => String(m.id) === String(g.materia_id)) || {};
+                    // Buscar maestro - comparar como string
+                    const maestro = maestros.find(m => String(m.id) === String(g.maestro_id)) || {};
+                    
+                    const duracion = parseInt(materia.duracion || 0);
+                    const sesiones = sesionesTranscurridas(g.fecha_inicio);
+                    let efectivas = Math.max((g.clases_completadas || 0), sesiones);
+                    if (duracion) efectivas = Math.min(efectivas, duracion);
+
+                    const pct = duracion ? Math.round((efectivas / duracion) * 100) : 0;
+                    const numAlumnos = (g.alumno_ids || []).length;
+
+                    const card = document.createElement('div');
+                    card.className = 'group-card';
+                    card.innerHTML = `
+                        <div class="group-title">${escapeHtml(g.nombre)}</div>
+                        <div class="group-meta"><strong>Materia:</strong> ${escapeHtml(materia.nombre || '—')}</div>
+                        <div class="group-meta"><strong>Maestro:</strong> ${escapeHtml(maestro.nombre || '—')}</div>
+                        <div class="group-meta"><strong>Horario:</strong> ${escapeHtml(g.horario || '—')}</div>
+                        <div class="group-meta"><strong>Inicio:</strong> ${escapeHtml(g.fecha_inicio || '')}</div>
+                        <div class="small"><strong>Alumnos:</strong> ${numAlumnos}</div>
+                        <div style="margin:8px 0;">
+                            <div class="small" style="margin-bottom:6px;"><strong>Progreso: ${efectivas}/${duracion || '∞'} clases (${pct}%)</strong></div>
+                            <div class="progress">
+                                <div class="progress-bar" style="width:${pct}%"></div>
+                                <div class="progress-text">${pct}%</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="action-btn view" onclick="verAlumnosGrupo(${g.id})">Ver Alumnos</button>
+                            <button class="action-btn edit" onclick="abrirEditarGrupo(${g.id})">Editar</button>
+                            <button class="action-btn edit" onclick="sincronizarGrupo(${g.id})">Sincronizar</button>
+                            <button class="action-btn del" onclick="eliminarGrupoConfirm(${g.id})">Eliminar</button>
+                        </div>
+                    `;
+
+                    cont.appendChild(card);
+                });
+            } catch (e) {
+                console.error('mostrarGrupos error:', e);
+                cont.innerHTML = '<div class="group-card">Error cargando grupos.</div>';
+            }
+        }
+
+        async function abrirEditarGrupo(id) {
+            try {
+                grupoEditandoId = id;
+                const g = await obtenerGrupoPorId(id);
+                if (!g) return alert('Grupo no encontrado');
+
+                document.getElementById('editNombreGrupo').value = g.nombre || '';
+                document.getElementById('editHorarioGrupo').value = g.horario || '';
+                document.getElementById('editFechaInicio').value = g.fecha_inicio || '';
+                document.getElementById('editMaestroGrupo').value = g.maestro_id || '';
+                document.getElementById('editMateriaGrupo').value = g.materia_id || '';
+
+                await renderAlumnosEditModal(id);
+                document.getElementById('editGrupoModal').style.display = 'block';
+                document.getElementById('msgEditGrupo').textContent = '';
+            } catch (e) {
+                console.error('Error abrirEditarGrupo:', e);
+                alert('Error: ' + (e.message || e));
+            }
+        }
+
+        async function guardarCambiosGrupo() {
+            const msg = document.getElementById('msgEditGrupo');
+            msg.textContent = '';
+
+            try {
+                const g = await obtenerGrupoPorId(grupoEditandoId);
+                if (!g) return alert('Grupo no encontrado');
+
+                g.nombre = document.getElementById('editNombreGrupo').value.trim() || g.nombre;
+                g.horario = document.getElementById('editHorarioGrupo').value;
+                g.fecha_inicio = document.getElementById('editFechaInicio').value;
+                const maestroVal = document.getElementById('editMaestroGrupo').value;
+                const materiaVal = document.getElementById('editMateriaGrupo').value;
+                g.maestro_id = maestroVal;
+                g.materia_id = materiaVal;
+
+                // Obtener alumnos seleccionados en el modal (ahora es opcional)
+                const selected = Array.from(document.querySelectorAll('input[name="alumnoEditCheck"]:checked'))
+                    .map(cb => parseInt(cb.value));
+
+                // Ya no es obligatorio tener alumnos en el grupo
+                g.alumno_ids = selected || [];
+
+                await actualizarGrupo(g);
+                msg.style.color = 'green';
+                msg.textContent = '✔ Cambios guardados exitosamente.';
+
+                setTimeout(() => {
+                    cerrarModalEditar();
+                    mostrarGrupos();
+                }, 1500);
+            } catch (e) {
+                console.error('Error guardarCambiosGrupo:', e);
+                msg.style.color = 'red';
+                msg.textContent = 'Error: ' + (e.message || e);
+            }
+        }
+
+        let grupoActualVerAlumnosId = null;
+
+        async function verAlumnosGrupo(id) {
+            try {
+                grupoActualVerAlumnosId = id;
+                const grupo = await obtenerGrupoPorId(id);
+                if (!grupo) return alert('Grupo no encontrado');
+
+                const alumnos = await cargarAlumnos();
+                const grupos = await cargarGrupos();
+                
+                // Alumnos que ya están en otros grupos (no se pueden agregar)
+                const otrosAsignadosSet = new Set();
+                grupos.forEach(g => {
+                    if (Number(g.id) !== Number(id)) {
+                        (g.alumno_ids || []).forEach(aid => otrosAsignadosSet.add(Number(aid)));
+                    }
+                });
+
+                const alumnosGrupo = alumnos.filter(a => (grupo.alumno_ids || []).includes(Number(a.id)));
+
+                const lista = document.getElementById('listaAlumnosGrupo');
+                lista.innerHTML = '';
+
+                // Sección: Buscador para agregar alumnos
+                const todosAlumnos = alumnos.filter(a => {
+                    const enEsteGrupo = (grupo.alumno_ids || []).includes(Number(a.id));
+                    const enOtroGrupo = otrosAsignadosSet.has(Number(a.id));
+                    return !enEsteGrupo && !enOtroGrupo;
+                });
+
+                let html = '';
+                
+                // Buscador
+                html += `
+                    <div style="background:#f5f5f5; padding:15px; border-radius:10px; margin-bottom:20px;">
+                        <div style="font-weight:bold; color:#8c1936; margin-bottom:10px;">➕ Agregar Alumnos al Grupo</div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <input type="text" id="buscadorAlumno" placeholder="Buscar por nombre o código..." 
+                                style="flex:1; min-width:200px; padding:10px; border:2px solid #8c1936; border-radius:8px;"
+                                onkeyup="filtrarAlumnosAgregar(${id})" />
+                        </div>
+                        <div id="resultadosBusqueda" class="alumnos-grid" style="margin-top:12px; max-height:200px; overflow-y:auto;"></div>
+                    </div>
+                `;
+
+                // Alumnos actuales del grupo
+                html += '<div style="font-weight:bold; color:#8c1936; margin:20px 0 10px 0;">👥 Alumnos del Grupo (' + alumnosGrupo.length + ')</div>';
+                
+                if (alumnosGrupo.length === 0) {
+                    html += '<div class="small" style="text-align:center; padding:20px; color:#999;">No hay alumnos en este grupo. Busca arriba para agregar.</div>';
+                } else {
+                    html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:12px;">';
+                    html += alumnosGrupo.map(a => `
+                        <div style="background:#f0f0f0; padding:12px; border-radius:8px; border-left:4px solid #8c1936; position:relative;">
+                            <div style="font-weight:bold; color:#8c1936;">${escapeHtml(a.nombre)}</div>
+                            <div style="font-size:12px; color:#001f54; margin-top:6px;">
+                                <div><strong>Código:</strong> ${escapeHtml(a.codigo || a.id)}</div>
+                                <div><strong>Matrícula:</strong> ${escapeHtml(a.matricula || '—')}</div>
+                                <div><strong>Horario:</strong> ${escapeHtml(a.horario || '—')}</div>
+                                <div><strong>Teléfono:</strong> ${escapeHtml(a.telefono || '—')}</div>
+                                <div><strong>Tutor:</strong> ${escapeHtml(a.tutor || '—')}</div>
+                            </div>
+                            <button onclick="quitarAlumnoDelGrupo(${id}, ${a.id})" 
+                                style="position:absolute; top:8px; right:8px; background:#dc3545; color:white; border:none; border-radius:50%; width:24px; height:24px; cursor:pointer; font-size:14px;" 
+                                title="Quitar del grupo">×</button>
+                        </div>
+                    `).join('');
+                    html += '</div>';
+                }
+
+                lista.innerHTML = html;
+                document.getElementById('verAlumnosModal').style.display = 'block';
+            } catch (e) {
+                console.error('Error verAlumnosGrupo:', e);
+                alert('Error: ' + (e.message || e));
+            }
+        }
+
+        async function filtrarAlumnosAgregar(grupoId) {
+            const texto = document.getElementById('buscadorAlumno').value.toLowerCase().trim();
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
+            
+            if (texto.length < 1) {
+                resultadosDiv.innerHTML = '';
+                return;
+            }
+
+            try {
+                const grupo = await obtenerGrupoPorId(grupoId);
+                const todosAlumnos = await cargarAlumnos();
+                const grupos = await cargarGrupos();
+                
+                // Obtener IDs de alumnos ya asignados a otros grupos
+                const otrosAsignadosSet = new Set();
+                grupos.forEach(g => {
+                    if (Number(g.id) !== Number(grupoId)) {
+                        (g.alumno_ids || []).forEach(aid => otrosAsignadosSet.add(Number(aid)));
+                    }
+                });
+
+                const grupoAlumnoIds = new Set((grupo.alumno_ids || []).map(Number));
+
+                // Filtrar por nombre o código
+                const filtrados = todosAlumnos.filter(a => {
+                    const enEsteGrupo = grupoAlumnoIds.has(Number(a.id));
+                    const enOtroGrupo = otrosAsignadosSet.has(Number(a.id));
+                    if (enEsteGrupo || enOtroGrupo) return false;
+                    
+                    const nombre = (a.nombre || '').toLowerCase();
+                    const codigo = (a.codigo || '').toString().toLowerCase();
+                    const matricula = (a.matricula || '').toString().toLowerCase();
+                    
+                    return nombre.includes(texto) || codigo.includes(texto) || matricula.includes(texto);
+                });
+
+                if (filtrados.length === 0) {
+                    resultadosDiv.innerHTML = '<div style="color:#999; padding:10px;">No se encontraron alumnos</div>';
+                    return;
+                }
+
+                resultadosDiv.innerHTML = filtrados.map(a => `
+                    <label class="alumno-checkbox" style="cursor:pointer;" onclick="agregarAlumnoAlGrupo(${grupoId}, ${a.id})">
+                        <div class="alumno-info">
+                            <strong>${escapeHtml(a.nombre)}</strong><br/>
+                            Código: ${escapeHtml(a.codigo || a.id)} • ${escapeHtml(a.matricula || '—')}
+                        </div>
+                    </label>
+                `).join('');
+            } catch (e) {
+                console.error('Error filtrarAlumnosAgregar:', e);
+            }
+        }
+
+        async function agregarAlumnoAlGrupo(grupoId, alumnoId) {
+            try {
+                const grupo = await obtenerGrupoPorId(grupoId);
+                if (!grupo) return alert('Grupo no encontrado');
+                
+                const alumnoIds = grupo.alumno_ids || [];
+                if (!alumnoIds.includes(Number(alumnoId))) {
+                    alumnoIds.push(Number(alumnoId));
+                    grupo.alumno_ids = alumnoIds;
+                    await actualizarGrupo(grupo);
+                }
+                
+                // Recargar la vista y actualizar la lista de grupos
+                await verAlumnosGrupo(grupoId);
+                await mostrarGrupos(); // Actualiza la lista de grupos existentes
+            } catch (e) {
+                console.error('Error agregarAlumnoAlGrupo:', e);
+                alert('Error: ' + (e.message || e));
+            }
+        }
+
+        async function quitarAlumnoDelGrupo(grupoId, alumnoId) {
+            if (!confirm('¿Quitar este alumno del grupo?')) return;
+            
+            try {
+                const grupo = await obtenerGrupoPorId(grupoId);
+                if (!grupo) return alert('Grupo no encontrado');
+                
+                grupo.alumno_ids = (grupo.alumno_ids || []).filter(id => Number(id) !== Number(alumnoId));
+                await actualizarGrupo(grupo);
+                
+                // Recargar la vista y actualizar la lista de grupos
+                await verAlumnosGrupo(grupoId);
+                await mostrarGrupos(); // Actualiza la lista de grupos existentes
+            } catch (e) {
+                console.error('Error quitarAlumnoDelGrupo:', e);
+                alert('Error: ' + (e.message || e));
+            }
+        }
+
+        async function limpiarFormulario() {
+            document.getElementById('formGrupo').reset();
+            // Autocompletar el siguiente número de grupo
+            const siguienteNumero = await obtenerSiguienteNumeroGrupo();
+            document.getElementById('nombreGrupo').value = 'GRUPO ' + siguienteNumero;
+            await renderAlumnosList();
+        }
+
+        function cerrarModalEditar() {
+            document.getElementById('editGrupoModal').style.display = 'none';
+            grupoEditandoId = null;
+        }
+
+        function cerrarModalAlumnos() {
+            document.getElementById('verAlumnosModal').style.display = 'none';
+        }
+
+        async function sincronizarGrupo(id) {
+            try {
+                const g = await obtenerGrupoPorId(id);
+                if (!g) return alert('Grupo no encontrado');
+                const materias = await cargarMaterias();
+                const materia = materias.find(m => String(m.id) === String(g.materia_id)) || {};
+                const duracion = parseInt(materia.duracion || 0);
+                const sesiones = sesionesTranscurridas(g.fecha_inicio);
+                const efectivas = duracion ? Math.min(sesiones, duracion) : sesiones;
+                g.clases_completadas = efectivas;
+                await actualizarGrupo(g);
+                await mostrarGrupos();
+                alert('✔ Contador sincronizado: ' + efectivas + ' clase(s)');
+            } catch (e) {
+                console.error('sincronizarGrupo:', e);
+                alert('Error: ' + (e.message || e));
+            }
+        }
+
+        async function sincronizarTodos() {
+            try {
+                const grupos = await cargarGrupos();
+                const materias = await cargarMaterias();
+                for (const g of grupos) {
+                    const materia = materias.find(m => String(m.id) === String(g.materia_id)) || {};
+                    const duracion = parseInt(materia.duracion || 0);
+                    const sesiones = sesionesTranscurridas(g.fecha_inicio);
+                    const efectivas = duracion ? Math.min(sesiones, duracion) : sesiones;
+                    g.clases_completadas = efectivas;
+                    await actualizarGrupo(g);
+                }
+                await mostrarGrupos();
+                alert('✔ Sincronización completada');
+            } catch (e) {
+                console.error('sincronizarTodos:', e);
+                alert('Error: ' + (e.message || e));
+            }
+        }
+
+        async function eliminarGrupoConfirm(id) {
+            if (!confirm('¿Eliminar este grupo?')) return;
+            try {
+                await eliminarGrupo(id);
+                await mostrarGrupos();
+            } catch (e) {
+                console.error('eliminarGrupoConfirm:', e);
+                alert('Error: ' + (e.message || e));
+            }
+        }
+
+        // Cerrar modales al hacer clic fuera
+        window.onclick = function(event) {
+            const editModal = document.getElementById('editGrupoModal');
+            const verAlumnosModal = document.getElementById('verAlumnosModal');
+            if (event.target === editModal) cerrarModalEditar();
+            if (event.target === verAlumnosModal) cerrarModalAlumnos();
+        };
+
+        document.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>

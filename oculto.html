@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de Administradores - CEPCI</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f7f7f7; }
+        .header { background: #8c1936; padding: 15px; color: white; font-size: 22px; font-weight: bold; display:flex;justify-content:space-between;align-items:center; }
+        .back { background: #CFB53B; padding: 10px 15px; border-radius: 8px; cursor:pointer; color:#8c1936; font-weight:bold; }
+        .back:hover { background:white; }
+        .container { margin: 30px auto; width:90%; max-width:800px; background:white; padding:25px; border-radius:15px; box-shadow:0 0 14px rgba(0,0,0,0.2); }
+        h2 { color:#001f54; text-align:center; margin-bottom:25px; }
+        label { font-weight:bold; color:#8c1936; display:block; margin-bottom:8px; }
+        input, select { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; font-size:15px; box-sizing:border-box; margin-bottom:15px; }
+        input:focus, select:focus { border-color:#CFB53B; box-shadow:0 0 6px #CFB53B; outline:none; }
+        .btn { padding:10px 14px; background:#8c1936; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
+        .btn:hover { background:#CFB53B; color:#8c1936; }
+        .msg { margin-top:12px; padding:10px; border-radius:6px; font-weight:bold; display:none; }
+        .msg.error { background:#ffebee; color:#c62828; }
+        .msg.success { background:#e8f5e9; color:#2e7d32; }
+        .user-list { margin-top:20px; }
+        .user-item { background:#f9f9f9; padding:10px; border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+    </style>
+    <script src="js/db.js"></script>
+    <script>
+        async function agregarUsuario() {
+            const username = document.getElementById('newAdminUsername').value.trim();
+            const password = document.getElementById('newAdminPassword').value;
+            const isAdmin = document.getElementById('newIsAdmin').checked;
+            const canReopen = document.getElementById('newCanReopen').checked;
+            const msg = document.getElementById('msg');
+
+            if (!username || !password) {
+                msg.className = 'msg error';
+                msg.textContent = 'Usuario y contraseña son obligatorios.';
+                msg.style.display = 'block';
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                const existing = await obtenerUsuario(username);
+                if (existing) {
+                    msg.className = 'msg error';
+                    msg.textContent = 'El usuario ya existe.';
+                    msg.style.display = 'block';
+                    return;
+                }
+
+                const user = { username, password, can_reopen: canReopen, is_admin: isAdmin };
+                await agregarUsuario(user);
+                msg.className = 'msg success';
+                msg.textContent = 'Usuario agregado correctamente.';
+                msg.style.display = 'block';
+                document.getElementById('newAdminUsername').value = '';
+                document.getElementById('newAdminPassword').value = '';
+                document.getElementById('newIsAdmin').checked = false;
+                document.getElementById('newCanReopen').checked = false;
+                loadUsuarios();
+            } catch (e) {
+                console.error(e);
+                msg.className = 'msg error';
+                msg.textContent = 'Error al agregar usuario.';
+                msg.style.display = 'block';
+            }
+        }
+
+        async function loadUsuarios() {
+            try {
+                const usuarios = await cargarUsuarios();
+                const container = document.getElementById('usuariosContainer');
+                container.innerHTML = '';
+                usuarios.forEach(u => {
+                    container.innerHTML += `<div class="user-item">
+                        <div>
+                            <strong>${u.username}</strong><br>
+                            <label><input type="checkbox" ${u.is_admin ? 'checked' : ''} onchange="updatePrivilegio('${u.username}', 'is_admin', this.checked)"> Administrador</label><br>
+                            <label><input type="checkbox" ${u.can_reopen ? 'checked' : ''} onchange="updatePrivilegio('${u.username}', 'can_reopen', this.checked)"> Puede reabrir caja</label>
+                        </div>
+                        <button class="btn" onclick="eliminarUsuario('${u.username}')">Eliminar</button>
+                    </div>`;
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function updatePrivilegio(username, field, value) {
+            try {
+                const user = await obtenerUsuario(username);
+                if (user) {
+                    user[field] = value;
+                    await actualizarUsuario(user);
+                    loadUsuarios();
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al actualizar privilegio.');
+            }
+        }
+
+        async function eliminarUsuario(username) {
+            if (!confirm(`¿Eliminar usuario ${username}?`)) return;
+            try {
+                await eliminarUsuario(username);
+                loadUsuarios();
+            } catch (e) {
+                console.error(e);
+                alert('Error al eliminar usuario.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadUsuarios);
+    </script>
+</head>
+<body>
+    <div class="header">
+        Gestión de Administradores - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div class="container">
+        <h2>Gestión de Administradores y Privilegios</h2>
+        <label>Usuario:</label>
+        <input type="text" id="newAdminUsername" />
+        <label>Contraseña:</label>
+        <input type="password" id="newAdminPassword" />
+        <label><input type="checkbox" id="newIsAdmin" /> Es Administrador</label>
+        <label><input type="checkbox" id="newCanReopen" /> Puede reabrir caja</label>
+        <button class="btn" onclick="agregarUsuario()">Agregar Usuario</button>
+        <div id="msg" class="msg"></div>
+
+        <div class="user-list">
+            <h3>Usuarios Existentes</h3>
+            <div id="usuariosContainer"></div>
+        </div>
+    </div>
+</body>
+</html>

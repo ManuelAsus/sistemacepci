@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Database - CEPCI</title>
+</head>
+<body>
+    <h1>Test Database CEPCI</h1>
+    <div id="output"></div>
+    <button onclick="testDatabase()">Test Database</button>
+    <button onclick="testLogin()">Test Login</button>
+
+    <script src="js/db.js"></script>
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message) {
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        async function testDatabase() {
+            try {
+                log('Iniciando test de base de datos...');
+                log('DB_NAME: ' + DB_NAME);
+                log('DB_VERSION: ' + DB_VERSION);
+                
+                await initIndexedDB();
+                log('Base de datos inicializada correctamente');
+                
+                // Check if db is available
+                if (db) {
+                    log('DB object exists');
+                    log('Object stores: ' + Array.from(db.objectStoreNames));
+                } else {
+                    log('DB object is null!');
+                }
+                
+                // Test obtener usuario
+                const user = await obtenerUsuarioLogin('AdminCepci01');
+                log('Usuario AdminCepci01: ' + JSON.stringify(user));
+                
+                // Test all users
+                const allUsers = await cargarUsuariosLogin();
+                log('Todos los usuarios: ' + JSON.stringify(allUsers));
+                
+            } catch (error) {
+                log('Error: ' + error.message);
+                log('Stack: ' + error.stack);
+            }
+        }
+
+        async function testLogin() {
+            try {
+                log('Probando login...');
+                const user = await obtenerUsuarioLogin('AdminCepci01');
+                log('Usuario obtenido: ' + JSON.stringify(user));
+                
+                if (user && user.password === 'AdministracionCepci') {
+                    log('Login exitoso!');
+                } else {
+                    log('Login fallido');
+                }
+            } catch (error) {
+                log('Error en login: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Calificaciones (Compatibilidad) - CEPCI</title>
+    <style>
+        body{font-family:Arial, sans-serif; margin:0; background:#f7f7f7}
+        .header{background:#8c1936;color:#fff;padding:14px;display:flex;justify-content:space-between;align-items:center}
+        .back{background:#CFB53B;color:#8c1936;padding:8px 12px;border-radius:8px;cursor:pointer;border:none}
+        .back:hover{opacity:0.95}
+        .container{max-width:1100px;margin:20px auto;padding:20px;background:#fff;border-radius:12px}
+        .controls{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+        select,input{padding:8px;border:2px solid #8c1936;border-radius:8px}
+        .alumnos{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+        .alumno{border:1px solid #ddd;padding:10px;border-radius:8px;background:#fafafa}
+        .toast{position:fixed;right:20px;bottom:20px;background:#323232;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.2);opacity:0;transform:translateY(10px);transition:opacity .25s,transform .25s}
+        .toast.show{opacity:1;transform:translateY(0)}
+        .btn{padding:8px 10px;border-radius:8px;border:none;background:#8c1936;color:#fff;cursor:pointer}
+        .btn.secondary{background:#CFB53B;color:#8c1936}
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="js/db.js"></script>
+    <script>
+        // Simple ES5 compatibility page logic using promises (no async/await, no arrow functions)
+        (function(window, document){
+            var grupos = [];
+            var alumnos = [];
+            var materias = [];
+
+            function mostrarToast(text, timeout) {
+                timeout = timeout || 3000;
+                var t = document.getElementById('globalToast');
+                if (!t) { t = document.createElement('div'); t.id='globalToast'; t.className='toast'; document.body.appendChild(t); }
+                t.textContent = text; t.className = 'toast show';
+                clearTimeout(t._hideTimer);
+                t._hideTimer = setTimeout(function(){ t.className = 'toast'; }, timeout);
+            }
+
+            function initPage() {
+                return initIndexedDB().then(function(){
+                    return cargarGrupos();
+                }).then(function(gs){
+                    grupos = gs || [];
+                    return cargarMaterias();
+                }).then(function(ms){
+                    materias = ms || [];
+                    renderGrupoControls();
+                }).catch(function(err){
+                    console.error('initPage error', err);
+                    mostrarToast('Error inicializando calificaciones');
+                });
+            }
+
+            function renderGrupoControls(){
+                var sel = document.getElementById('selGrupo');
+                sel.innerHTML = '<option value="">-- Seleccione Grupo --</option>';
+                for (var i=0;i<grupos.length;i++){
+                    var g = grupos[i];
+                    var opt = document.createElement('option'); opt.value = g.id; opt.text = (g.nombre || ('Grupo '+g.id));
+                    sel.appendChild(opt);
+                }
+
+                var box = document.getElementById('selGrupoCustom');
+                box.innerHTML = '';
+                if (!grupos || grupos.length===0){
+                    var msg = document.createElement('div'); msg.style.color='#666'; msg.innerHTML='No se encontraron grupos.';
+                    var rb = document.createElement('button'); rb.className='btn'; rb.style.marginLeft='8px'; rb.textContent='Recargar';
+                    rb.addEventListener('click', function(){ mostrarToast('Recargando grupos...'); initPage(); });
+                    msg.appendChild(rb); box.appendChild(msg); return;
+                }
+
+                var wrap = document.createElement('div');
+                for (var j=0;j<grupos.length;j++){
+                    (function(g){
+                        var b = document.createElement('button'); b.type='button'; b.className='btn'; b.style.marginRight='6px'; b.textContent = g.nombre || ('Grupo '+g.id);
+                        b.addEventListener('click', function(){ sel.value = g.id; cargarAlumnosPorGrupo(); });
+                        wrap.appendChild(b);
+                    })(grupos[j]);
+                }
+                box.appendChild(wrap);
+            }
+
+            function cargarAlumnosPorGrupo(){
+                var gid = document.getElementById('selGrupo').value;
+                var cont = document.getElementById('alumnosContainer'); cont.innerHTML='';
+                if (!gid) { mostrarToast('Seleccione grupo'); return Promise.resolve(); }
+                return cargarAlumnos().then(function(todos){
+                    return obtenerGrupoPorId(Number(gid)).then(function(gr){
+                        var grupo = gr || null;
+                        if (grupo && Array.isArray(grupo.alumno_ids) && grupo.alumno_ids.length>0){
+                            var idSet = {};
+                            for (var k=0;k<grupo.alumno_ids.length;k++) idSet[String(grupo.alumno_ids[k])] = true;
+                            alumnos = [];
+                            for (var a=0;a<todos.length;a++) if (idSet[String(todos[a].id)]) alumnos.push(todos[a]);
+                        } else {
+                            alumnos = [];
+                            for (var z=0;z<todos.length;z++){
+                                if (String(todos[z].grupoId) === String(gid)) alumnos.push(todos[z]);
+                            }
+                        }
+                        mostrarInfoGrupo(grupo);
+                        if (!alumnos || alumnos.length===0){ cont.innerHTML = '<div class="empty">No hay alumnos en este grupo.</div>'; return; }
+                        for (var i=0;i<alumnos.length;i++){
+                            (function(a){
+                                var box = document.createElement('div'); box.className='alumno';
+                                box.innerHTML = '<div><strong>' + (a.nombre||'') + ' ' + (a.apellido||'') + '</strong> <div style="font-size:12px;color:#666">Codigo: ' + (a.codigo||'') + '</div></div>';
+                                // load califications for student
+                                cargarCalificacionesPorAlumno(a.id).then(function(califs){
+                                    for (var mI=0;mI<materias.length;mI++){
+                                        var m = materias[mI];
+                                        var row = document.createElement('div'); row.className='materia-row';
+                                        var label = document.createElement('div'); label.style.flex='1'; label.textContent = m.nombre || ('Materia '+m.id);
+                                        var input = document.createElement('input'); input.type='text'; input.placeholder='Calificacion'; input.setAttribute('data-alumno', a.id); input.setAttribute('data-materia', m.id); input.style.width='100px';
+                                        // find existing
+                                        var exists = null;
+                                        for (var cI=0;cI<califs.length;cI++){ if (String(califs[cI].materiaId) === String(m.id) && String(califs[cI].grupoId) === String(gid)){ exists = califs[cI]; break; } }
+                                        if (exists) { input.value = exists.calificacion; input.setAttribute('data-calif-id', exists.id); }
+                                        row.appendChild(label); row.appendChild(input); box.appendChild(row);
+                                    }
+                                }).catch(function(){ });
+                                var actions = document.createElement('div'); actions.className='actions';
+                                var btnSave = document.createElement('button'); btnSave.className='btn secondary'; btnSave.textContent='Guardar';
+                                btnSave.addEventListener('click', function(){ guardarCalificacionesAlumno(box); });
+                                actions.appendChild(btnSave);
+                                var btnPNG = document.createElement('button'); btnPNG.className='btn'; btnPNG.textContent='Descargar (PNG)';
+                                btnPNG.addEventListener('click', function(){ generarBoletaAlumnoPNG(a); }); actions.appendChild(btnPNG);
+                                var btnPDF = document.createElement('button'); btnPDF.className='btn'; btnPDF.textContent='Imprimir/Guardar PDF';
+                                btnPDF.addEventListener('click', function(){ abrirBoletaAlumnoPDF(a); }); actions.appendChild(btnPDF);
+                                box.appendChild(actions);
+                                cont.appendChild(box);
+                            })(alumnos[i]);
+                        }
+                    }).catch(function(){
+                        // no grupo found
+                        alumnos = [];
+                        for (var z2=0;z2<todos.length;z2++){ if (String(todos[z2].grupoId) === String(gid)) alumnos.push(todos[z2]); }
+                        mostrarInfoGrupo(null);
+                    });
+                }).catch(function(err){ console.error('cargarAlumnos error',err); mostrarToast('Error cargando alumnos'); });
+            }
+
+            function mostrarInfoGrupo(grupo){
+                var horarioEl = document.getElementById('grpHorario'); var maestroEl = document.getElementById('grpMaestro');
+                if (!grupo){ horarioEl.textContent='-'; maestroEl.textContent='-'; return; }
+                horarioEl.textContent = grupo.horario || (grupo.turno || '-');
+                var maestroId = grupo.maestro_id || group.maestro || null;
+                if (!maestroId){ maestroEl.textContent='-'; return; }
+                cargarMaestros().then(function(list){
+                    var mm = null; for (var i=0;i<list.length;i++){ if (String(list[i].id) === String(maestroId)) { mm = list[i]; break; } }
+                    maestroEl.textContent = mm ? (mm.nombre || ('ID:'+mm.id)) : ('ID:'+maestroId);
+                }).catch(function(){ maestroEl.textContent = 'ID:'+maestroId; });
+            }
+
+            function guardarCalificacionesAlumno(box){
+                var inputs = box.querySelectorAll('input[data-alumno]'); if (!inputs || inputs.length===0) { mostrarToast('No se encontraron calificaciones para guardar'); return; }
+                var alumnoId = Number(inputs[0].getAttribute('data-alumno'));
+                var gid = Number(document.getElementById('selGrupo').value);
+                var saved = 0; var promises = [];
+                for (var i=0;i<inputs.length;i++){
+                    (function(inp){
+                        var valor = (inp.value||'').trim(); if (!valor) return;
+                        var materiaId = Number(inp.getAttribute('data-materia'));
+                        var existingId = inp.getAttribute('data-calif-id') ? Number(inp.getAttribute('data-calif-id')) : null;
+                        if (existingId){ promises.push(actualizarCalificacion({ id: existingId, alumnoId: alumnoId, grupoId: gid, materiaId: materiaId, calificacion: valor }).then(function(){ saved++; }).catch(function(e){ console.error(e); })); }
+                        else { promises.push(guardarCalificacion({ alumnoId: alumnoId, grupoId: gid, materiaId: materiaId, calificacion: valor }).then(function(savedObj){ if (savedObj && savedObj.id) inp.setAttribute('data-calif-id', savedObj.id); saved++; }).catch(function(e){ console.error(e); })); }
+                    })(inputs[i]);
+                }
+                Promise.all(promises).then(function(){ 
+                    if (saved>0) {
+                        mostrarToast('✓ Calificaciones guardadas ('+saved+')');
+                        try { cargarAlumnosPorGrupo(); } catch(e){ console.error('Error recargando tras guardar (legacy):', e); }
+                    } else {
+                        mostrarToast('No se guardaron calificaciones (valores vacíos)');
+                    }
+                });
+            }
+
+            function generarPreview(){
+                var gid = document.getElementById('selGrupo').value; if (!gid) { mostrarToast('Seleccione grupo'); return; }
+                var cont = document.getElementById('alumnosContainer'); if (!cont.children.length){ mostrarToast('Cargue alumnos'); return; }
+                var preview = document.getElementById('preview'); preview.innerHTML='';
+                // build a table waiting for each alumno's calificaciones so preview shows values
+                var grupo = null; for (var i=0;i<grupos.length;i++){ if (String(grupos[i].id) === String(gid)) { grupo = grupos[i]; break; } }
+                var header = document.createElement('div'); header.className='boleta-header';
+                var left = document.createElement('div'); left.innerHTML = '<div class="boleta-title">Boleta de Calificaciones</div><div class="boleta-meta">Grupo: '+(grupo && grupo.nombre ? grupo.nombre : gid)+'</div>';
+                header.appendChild(left); preview.appendChild(header);
+                var table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse';
+                var thead = document.createElement('thead'); var thr = document.createElement('tr'); var th = document.createElement('th'); th.textContent='Alumno'; thr.appendChild(th);
+                for (var m=0;m<materias.length;m++){ var thm = document.createElement('th'); thm.textContent = materias[m].nombre || ('Materia '+materias[m].id); thr.appendChild(thm); }
+                thead.appendChild(thr); table.appendChild(thead);
+                var tbody = document.createElement('tbody');
+                // load califications for all alumnos and then render rows
+                var promises = [];
+                for (var aI=0;aI<alumnos.length;aI++){
+                    (function(a){
+                        promises.push(cargarCalificacionesPorAlumno(a.id).then(function(califs){ return { alumno: a, califs: califs || [] }; }));
+                    })(alumnos[aI]);
+                }
+                Promise.all(promises).then(function(results){
+                    for (var r=0;r<results.length;r++){
+                        var res = results[r];
+                        var a = res.alumno; var califs = res.califs || [];
+                        var tr = document.createElement('tr'); var tdName = document.createElement('td'); tdName.textContent = (a.nombre||'') + ' ' + (a.apellido||''); tr.appendChild(tdName);
+                        for (var mmI=0; mmI<materias.length; mmI++){
+                            var m = materias[mmI]; var td = document.createElement('td');
+                            var found = null;
+                            for (var ci=0; ci<califs.length; ci++){ if (String(califs[ci].materiaId) === String(m.id)) { found = califs[ci]; break; } }
+                            td.textContent = found ? (found.calificacion || '') : '';
+                            tr.appendChild(td);
+                        }
+                        tbody.appendChild(tr);
+                    }
+                    table.appendChild(tbody); preview.appendChild(table); preview.style.display='block';
+                }).catch(function(err){ console.error('Error cargando calificaciones para preview',err); table.appendChild(tbody); preview.appendChild(table); preview.style.display='block'; });
+            }
+
+            function generarBoletaAlumnoPNG(alumno){
+                // fallback: use same canvas method but simpler
+                if (!alumno) { mostrarToast('Alumno no encontrado'); return; }
+                var gid = document.getElementById('selGrupo').value;
+                obtenerGrupoPorId(Number(gid)).then(function(gr){
+                    cargarCalificacionesPorAlumno(alumno.id).then(function(califs){
+                        var width = 900, lineH = 26; var height = 200 + (materias.length * lineH);
+                        var canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,width,height);
+                        ctx.fillStyle = '#8c1936'; ctx.fillRect(0,0,width,60);
+                        ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Arial'; ctx.fillText('Boleta de Calificaciones', 24, 38);
+                        ctx.fillStyle = '#333'; ctx.font = '14px Arial'; ctx.fillText('Alumno: ' + ((alumno.nombre||'') + ' ' + (alumno.apellido||'')), 24, 90);
+                        var y = 140; ctx.fillStyle='#f5f5f5'; ctx.fillRect(24, y-18, width-48, lineH); ctx.fillStyle='#8c1936'; ctx.font='bold 14px Arial'; ctx.fillText('Materia', 30, y-4); ctx.fillText('Calificacion', 600, y-4); ctx.fillStyle='#333';
+                        for (var i=0;i<materias.length;i++){ var m = materias[i]; var c = null; for (var ci=0;ci<califs.length;ci++){ if (String(califs[ci].materiaId) === String(m.id)) { c = califs[ci]; break; } } ctx.fillStyle='#fff'; ctx.fillRect(24, y, width-48, lineH-2); ctx.fillStyle='#333'; ctx.fillText(m.nombre||('Materia '+m.id), 30, y + lineH - 10); ctx.fillText(c ? String(c.calificacion) : '', 600, y + lineH - 10); y += lineH; }
+                        canvas.toBlob(function(blob){ var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'boleta_'+((alumno.nombre||'')+'_'+(alumno.apellido||'')).replace(/\s+/g,'_')+'_'+Date.now()+'.png'; a.click(); });
+                    });
+                });
+            }
+
+            function abrirBoletaAlumnoPDF(alumno){
+                if (!alumno) { mostrarToast('Alumno no encontrado'); return; }
+                var gid = document.getElementById('selGrupo').value;
+                obtenerGrupoPorId(Number(gid)).then(function(gr){
+                    cargarCalificacionesPorAlumno(alumno.id).then(function(califs){
+                        var width = 900, lineH = 26; var height = 200 + (materias.length * lineH);
+                        var canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,width,height);
+                        ctx.fillStyle = '#8c1936'; ctx.fillRect(0,0,width,60);
+                        ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Arial'; ctx.fillText('Boleta de Calificaciones', 24, 38);
+                        ctx.fillStyle = '#333'; ctx.font = '14px Arial'; ctx.fillText('Alumno: ' + ((alumno.nombre||'') + ' ' + (alumno.apellido||'')), 24, 90);
+                        var y = 140; ctx.fillStyle='#f5f5f5'; ctx.fillRect(24, y-18, width-48, lineH); ctx.fillStyle='#8c1936'; ctx.font='bold 14px Arial'; ctx.fillText('Materia', 30, y-4); ctx.fillText('Calificacion', 600, y-4); ctx.fillStyle='#333';
+                        for (var i=0;i<materias.length;i++){ var m = materias[i]; var c = null; for (var ci=0;ci<califs.length;ci++){ if (String(califs[ci].materiaId) === String(m.id)) { c = califs[ci]; break; } } ctx.fillStyle='#fff'; ctx.fillRect(24, y, width-48, lineH-2); ctx.fillStyle='#333'; ctx.fillText(m.nombre||('Materia '+m.id), 30, y + lineH - 10); ctx.fillText(c ? String(c.calificacion) : '', 600, y + lineH - 10); y += lineH; }
+                        try {
+                            var imgData = canvas.toDataURL('image/png');
+                            var filename = 'boleta_'+((alumno.nombre||'')+'_'+(alumno.apellido||'')).replace(/\s+/g,'_')+'_'+Date.now()+'.pdf';
+                            // robust detection of jsPDF constructor
+                            var PDFCtor = null;
+                            if (typeof jsPDF !== 'undefined') PDFCtor = jsPDF;
+                            else if (window && window.jspdf && window.jspdf.jsPDF) PDFCtor = window.jspdf.jsPDF;
+                            else if (window && window.jsPDF) PDFCtor = window.jsPDF;
+
+                            if (PDFCtor) {
+                                try {
+                                    var pdf = new PDFCtor('p', 'pt', 'a4');
+                                    var pageWidth = pdf.internal.pageSize.getWidth ? pdf.internal.pageSize.getWidth() : pdf.internal.pageSize.width;
+                                    var pageHeight = pdf.internal.pageSize.getHeight ? pdf.internal.pageSize.getHeight() : pdf.internal.pageSize.height;
+                                    var margin = 20;
+                                    var imgWidth = pageWidth - margin*2;
+                                    var ratio = canvas.width / canvas.height;
+                                    var imgHeight = imgWidth / ratio;
+                                    if (imgHeight > pageHeight - margin*2) { imgHeight = pageHeight - margin*2; imgWidth = imgHeight * ratio; }
+                                    pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
+                                    pdf.save(filename);
+                                    return;
+                                } catch(pdfErr){ console.error('jsPDF error', pdfErr); }
+                            }
+
+                            // fallback: try html2pdf from the canvas element
+                            try {
+                                html2pdf().from(canvas).set({ margin:10, filename: filename }).save();
+                                return;
+                            } catch(html2pdfErr){ console.error('html2pdf-from-canvas error', html2pdfErr); }
+
+                            // last resort: download PNG
+                            canvas.toBlob(function(blob){ var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename.replace(/\.pdf$/,'') + '.png'; a.click(); });
+                        } catch(e){ console.error('Error generando PDF desde canvas', e); mostrarToast('Error generando PDF'); }
+                    }).catch(function(){ mostrarToast('Error cargando calificaciones'); });
+                }).catch(function(){ mostrarToast('Error obteniendo grupo'); });
+            }
+
+            // wire DOM events after load
+            document.addEventListener('DOMContentLoaded', function(){
+                document.getElementById('btnCargar').addEventListener('click', cargarAlumnosPorGrupo);
+                document.getElementById('selGrupo').addEventListener('change', cargarAlumnosPorGrupo);
+                document.getElementById('btnPreview').addEventListener('click', generarPreview);
+                document.getElementById('btnDescImg').addEventListener('click', function(){ var preview = document.getElementById('preview'); if (!preview.innerHTML.trim()){ mostrarToast('Genere la vista previa primero'); return; } html2canvas(preview, {scale:2}).then(function(canvas){ canvas.toBlob(function(blob){ var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'calificaciones_'+Date.now()+'.png'; a.click(); }); }); });
+                document.getElementById('btnDescPDF').addEventListener('click', function(){ var preview = document.getElementById('preview'); if (!preview.innerHTML.trim()){ mostrarToast('Genere la vista previa primero'); return; } html2pdf().from(preview).set({ margin:10, filename:'calificaciones_'+Date.now()+'.pdf' }).save(); });
+                var btnActualizar = document.getElementById('btnActualizar');
+                if (btnActualizar) {
+                    btnActualizar.addEventListener('click', function(){
+                        try { mostrarToast('Actualizando...'); initPage().then(function(){ mostrarToast('Módulo actualizado'); }).catch(function(){ mostrarToast('Error actualizando'); }); } catch(e){ console.error(e); }
+                    });
+                }
+                // start
+                initPage();
+            });
+
+            // expose some helpers for debugging
+            window._cal_legacy = { initPage: initPage, cargarAlumnosPorGrupo: cargarAlumnosPorGrupo };
+
+        })(window, document);
+    </script>
+</head>
+<body>
+    <div class="header">
+        Calificaciones (Compatibilidad)
+        <div style="display:flex;gap:8px;align-items:center">
+            <button class="back" onclick="location.href='dashboard.html'">Regresar</button>
+            <button id="btnActualizar" class="back" style="margin-left:6px">Actualizar</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="controls">
+            <label>Grupo:</label>
+            <select id="selGrupo"></select>
+            <div id="selGrupoCustom"></div>
+            <button id="btnCargar" class="btn">Cargar</button>
+            <div id="grupoInfo" style="margin-left:12px; display:flex; gap:10px; align-items:center;"><div style="font-size:13px;color:#333">Horario: <span id="grpHorario">-</span></div><div style="font-size:13px;color:#333">Maestro: <span id="grpMaestro">-</span></div></div>
+            <button id="btnPreview" class="btn">Vista Previa</button>
+            <button id="btnDescImg" class="btn secondary">Descargar Imagen</button>
+            <button id="btnDescPDF" class="btn secondary">Descargar PDF</button>
+            <button id="btnActualizar" class="btn secondary" style="margin-left:8px">Actualizar</button>
+        </div>
+        <div id="alumnosContainer" class="alumnos"></div>
+        <div id="preview" style="margin-top:18px;padding:12px;background:#fff;border-radius:8px"></div>
+    </div>
+</body>
+</html>

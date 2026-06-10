@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrativo - CEPCI</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f1f1f1;
+        }
+
+        .header {
+            background: #8c1936; 
+            padding: 15px;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logout {
+            background: #CFB53B; 
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #8c1936;
+            font-weight: bold;
+        }
+
+        .logout:hover {
+            background: white;
+            color: #8c1936;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        .title {
+            font-size: 26px;
+            font-weight: bold;
+            color: #001f54; 
+            margin-bottom: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            transition: .3s;
+            text-align: center;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 18px rgba(0,0,0,0.25);
+        }
+
+        .card h3 {
+            color: #8c1936;
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        .card p {
+            color: #001f54;
+            font-size: 15px;
+        }
+
+        .import-control {
+            display:flex;
+            gap:8px;
+            justify-content:center;
+            align-items:center;
+        }
+
+        .small-btn {
+            background:#CFB53B;
+            color:#8c1936;
+            border:none;
+            padding:8px 10px;
+            border-radius:8px;
+            cursor:pointer;
+            font-weight:600;
+        }
+
+        .small-btn:disabled { opacity:0.6; cursor:not-allowed; }
+        /* Modal styling for user/admin login */
+        #userLoginModal, #adminLoginModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        #userLoginModal > div, #adminLoginModal > div { background: #fff; padding: 20px; border-radius: 10px; width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        #userLoginModal input, #adminLoginModal input { width: 100%; padding: 8px; margin-top: 6px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    </style>
+
+    <script>
+        // Navigation helper
+        function goTo(url) { window.location.href = url; }
+
+        // User login modal for protected pages (pagos / definircostosypagos)
+        let _redirectTarget = '';
+        function showUserModal(target) {
+            _redirectTarget = target;
+            const modal = document.getElementById('userLoginModal');
+            const usernameInput = document.getElementById('loginUsername');
+            const passwordInput = document.getElementById('loginPassword');
+            if (modal) modal.style.display = 'flex';
+            if (usernameInput) {
+                usernameInput.value = '';
+                usernameInput.focus();
+            }
+            if (passwordInput) passwordInput.value = '';
+        }
+
+        function closeUserModal() {
+            const modal = document.getElementById('userLoginModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function verifyUserLogin() {
+            const usernameInput = document.getElementById('loginUsername');
+            const passwordInput = document.getElementById('loginPassword');
+            const username = usernameInput ? usernameInput.value.trim() : '';
+            const password = passwordInput ? passwordInput.value : '';
+            if (!username || !password) {
+                alert('Usuario y contraseña requeridos.');
+                if (usernameInput) usernameInput.focus();
+                return;
+            }
+            try {
+                await initIndexedDB();
+                const user = await obtenerUsuario(username);
+                if (!user || user.password !== password) {
+                    alert('Credenciales incorrectas.');
+                    if (!user && usernameInput) {
+                        usernameInput.focus();
+                    } else if (passwordInput) {
+                        passwordInput.focus();
+                    }
+                    return;
+                }
+                closeUserModal();
+                window.location.href = _redirectTarget;
+            } catch (e) {
+                console.error(e);
+                alert('Error al verificar usuario.');
+                if (usernameInput) usernameInput.focus();
+            }
+        }
+
+        // Admin page access requires static password
+        function requestAdminPassword() {
+            const modal = document.getElementById('adminLoginModal');
+            const passwordInput = document.getElementById('adminPassword');
+            if (modal) modal.style.display = 'flex';
+            if (passwordInput) {
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        }
+
+        function closeAdminModal() {
+            const modal = document.getElementById('adminLoginModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function verifyAdminPassword() {
+            const passwordInput = document.getElementById('adminPassword');
+            const pass = passwordInput ? passwordInput.value : '';
+            // Obtener contraseña del admin (si fue cambiada, está en localStorage)
+            const adminPass = localStorage.getItem('adminPassword') || 'CepciAdministracion01CEPCI';
+            if (pass === adminPass) {
+                closeAdminModal();
+                window.location.href = 'administrador.html';
+            } else {
+                alert('Contraseña incorrecta.');
+                if (passwordInput) passwordInput.focus();
+            }
+        }
+        // Ensure modal is hidden on initial load (do not show automatically)
+        document.addEventListener('DOMContentLoaded', () => {
+            const m = document.getElementById('userLoginModal');
+            if (m) m.style.display = 'none';
+            const am = document.getElementById('adminLoginModal');
+            if (am) am.style.display = 'none';
+
+            // ocultar tarjetas según permisos almacenados en session
+            hideDashboardCards();
+        });
+    </script>
+</head>
+<body>
+
+    <div class="header">
+        Panel Administrativo CEPCI
+        <div style="display: flex; gap: 10px;">
+            <button class="logout" onclick="location.reload()" style="background: #CFB53B;">🔄 Refrescar</button>
+            <button class="logout" onclick="location.href='index.html'">🚪 Cerrar Sesión</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="title">Seleccione un apartado</div>
+
+        <div class="grid">
+            
+            <div class="card" data-module="registroalumnos" onclick="location.href='registroalumnos.html'">
+                <h3>Registros de Alumnos</h3>
+                <p>Agregar, editar y administrar alumnos.</p>
+            </div>
+
+            <div class="card" data-module="maestros" onclick="location.href='maestros.html'">
+                <h3>Registros de Maestros</h3>
+                <p>Control y gestión de docentes.</p>
+            </div>
+
+            <div class="card" data-module="maestros" onclick="location.href='vermaestros.html'">
+                <h3>Ver Maestros</h3>
+                <p>Control y gestión de docentes.</p>
+            </div>
+
+            <div class="card" data-module="materias" onclick="location.href='registrarmaterias.html'">
+                <h3>Registros de Materias</h3>
+                <p>Administración de materias escolares.</p>
+            </div>
+
+            <div class="card" data-module="materias" onclick="location.href='vermaterias.html'">
+                <h3>Ver Materias</h3>
+                <p>Administración de materias escolares.</p>
+            </div>
+
+            <div class="card" data-module="veralumnos" onclick="location.href='veralumnos.html'">
+                <h3>Ver Alumnos</h3>
+                <p>Ver alumnos registrados.</p>
+            </div>
+
+            <div class="card" data-module="calificaciones" onclick="location.href='calificaciones.html'">
+                <h3>Calificaciones</h3>
+                <p>Ver y registrar calificaciones de los alumnos.</p>
+            </div>
+
+            <div class="card" data-module="pagos" onclick="location.href='pagos.html'">
+                <h3>Realizar Pagos</h3>
+                <p>Cobrar a los alumnos sus cuotas.</p>
+            </div>
+
+            <div class="card" data-module="definircostosypagos" onclick="showUserModal('definircostosypagos.html')">
+                <h3>Definir Costos y Pagos</h3>
+                <p>Establecer el monto de cobro para cada alumno y mas opciones.</p>
+            </div>
+
+            <div class="card" data-module="asesores" onclick="location.href='asesores.html'">
+                <h3>Asesores</h3>
+                <p>Registro y editar asesores.</p>
+            </div>
+
+            <div class="card" data-module="grupos" onclick="location.href='grupos.html'">
+                <h3>Crear Grupos</h3>
+                <p>Crear grupos de estudiantes.</p>
+            </div>
+
+            <div class="card" data-module="inventario" onclick="location.href='inventario.html'">
+                <h3>Inventario</h3>
+                <p>Administrar inventario de materiales escolares.</p>
+            </div>
+
+             <div class="card" data-module="caja" onclick="location.href='caja.html'">
+                <h3>Abrir Caja</h3>
+                <p>Administrar Caja.</p>
+            </div>
+
+            <div class="card" data-module="listas" onclick="location.href='listas.html'">
+                <h3>Listas</h3>
+                <p>Ver listas de alumnos, maestros y grupos.</p>
+            </div>
+
+             <div class="card" data-module="otros" onclick="requestAdminPassword()">
+                <h3>Administrador</h3>
+                <p>Administrar.</p>
+            </div>
+
+            <div class="card" data-module="copiadeseguridad" onclick="location.href='copiadeseguridad.html'">
+                <h3>Copia de Seguridad</h3>
+                <p>Exportar respaldo de la base de datos (JSON) o ir a la página de backups.</p>
+            </div>
+
+            <div class="card" data-module="informacion" onclick="location.href='informacion.html'">
+                <h3>Información Escolar</h3>
+                <p>Datos generales de la escuela y mapa.</p>
+            </div>
+
+            <!-- Nueva tarjeta para importar backup -->
+            <div class="card" data-module="importar">
+                <h3>Importar Base de Datos</h3>
+                <p>Selecciona un archivo JSON de respaldo para restaurar la base de datos completa.</p>
+                <div class="import-control" style="margin-top:12px">
+                    <input id="importFile" type="file" accept=".json,application/json" style="display:none" />
+                    <button class="small-btn" id="btnChoose">Seleccionar archivo</button>
+                    <button class="small-btn" id="btnImport" disabled>Importar</button>
+                </div>
+                <div id="importStatus" style="margin-top:8px; font-size:13px; color:#444"></div>
+            </div>
+
+            <div class="card" data-module="otros" onclick="alert('Puedes agregar más secciones aquí')">
+                <h3>Otros Apartados</h3>
+                <p>Sitio personalizable para nuevas funciones.</p>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="userLoginModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:20px; border-radius:10px; width:320px;">
+            <h3>Acceso Requerido</h3>
+            <label>Usuario:</label>
+            <input type="text" id="loginUsername" onkeydown="if (event.key === 'Enter') verifyUserLogin();" />
+            <label>Contraseña:</label>
+            <input type="password" id="loginPassword" onkeydown="if (event.key === 'Enter') verifyUserLogin();" />
+            <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+                <button class="small-btn" onclick="verifyUserLogin()">Aceptar</button>
+                <button class="small-btn" onclick="closeUserModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminLoginModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:20px; border-radius:10px; width:320px;">
+            <h3>Acceso de Administrador</h3>
+            <label>Contraseña:</label>
+            <input type="password" id="adminPassword" onkeydown="if (event.key === 'Enter') verifyAdminPassword();" />
+            <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+                <button class="small-btn" onclick="verifyAdminPassword()">Aceptar</button>
+                <button class="small-btn" onclick="closeAdminModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script>
+        // ========== SISTEMA DE ACCESO RESTRINGIDO ==========
+        let secretMode = false;
+        let secretTimer = null;
+        let codigoIngresado = '';
+        const codigoSecreto = 'cepci';
+
+        function resetSecretMode() {
+            secretMode = false;
+            codigoIngresado = '';
+            if (secretTimer) {
+                clearTimeout(secretTimer);
+                secretTimer = null;
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Alt' && !secretMode) {
+                secretMode = true;
+                codigoIngresado = '';
+                if (secretTimer) clearTimeout(secretTimer);
+                secretTimer = setTimeout(() => {
+                    resetSecretMode();
+                    console.log('Modo secreto expirado');
+                }, 5000);
+                console.log('✓ ALT detectado - escribe cepci en minúsculas');
+                return;
+            }
+
+            if (secretMode && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && e.key !== 'Alt') {
+                codigoIngresado += e.key.toLowerCase();
+                console.log('Código ingresado:', codigoIngresado);
+
+                if (codigoIngresado === codigoSecreto) {
+                    resetSecretMode();
+                    console.log('✓✓✓ ACCESO CORRECTO ✓✓✓');
+                    sessionStorage.setItem('acceso_restringido', 'true');
+                    window.location.href = 'acceso-restringido.html';
+                    return;
+                }
+
+                if (codigoIngresado.length >= codigoSecreto.length) {
+                    console.log('Código incorrecto, reiniciando...');
+                    resetSecretMode();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Alt' && secretMode) {
+                // no cancelar el modo inmediatamente, permitimos escribir después de un solo pulso
+                return;
+            }
+        });
+
+      // Import logic (uses global db/initIndexedDB from js/db.js)
+      document.addEventListener('DOMContentLoaded', () => {
+        const importFile = document.getElementById('importFile');
+        const btnChoose = document.getElementById('btnChoose');
+        const btnImport = document.getElementById('btnImport');
+        const status = document.getElementById('importStatus');
+
+        btnChoose.addEventListener('click', () => importFile.click());
+
+        importFile.addEventListener('change', () => {
+          btnImport.disabled = !importFile.files || importFile.files.length === 0;
+          status.textContent = importFile.files && importFile.files.length ? 'Archivo listo: ' + importFile.files[0].name : '';
+        });
+
+        btnImport.addEventListener('click', async () => {
+          if (!importFile.files || !importFile.files[0]) return;
+          if (!confirm('Importar un backup reemplazará (limpiará) los datos actuales. ¿Deseas continuar?')) return;
+          btnImport.disabled = true;
+          status.textContent = 'Importando...';
+          try {
+            await importDatabaseFromFile(importFile.files[0]);
+            status.textContent = 'Importación finalizada. Puedes recargar la página.';
+            setTimeout(()=>location.reload(), 800);
+          } catch (err) {
+            console.error(err);
+            status.textContent = 'Error al importar: ' + (err.message || err);
+          } finally {
+            btnImport.disabled = false;
+          }
+        });
+
+        // Import implementation
+        async function importDatabaseFromFile(file) {
+          const txt = await file.text();
+          const parsed = JSON.parse(txt);
+          const data = parsed.data || {};
+          await initIndexedDB();
+
+          const stores = ['alumnos','maestros','materias','imagenes'];
+
+          // Limpiar stores
+          for (const s of stores) {
+            await new Promise((res,rej) => {
+              const tx = db.transaction([s], 'readwrite');
+              const store = tx.objectStore(s);
+              const req = store.clear();
+              req.onsuccess = () => tx.oncomplete = res;
+              req.onerror = () => rej(req.error);
+            }).catch(e => console.warn('No se pudo limpiar', s, e));
+          }
+
+          // Reinsertar
+          for (const s of stores) {
+            const arr = data[s] || [];
+            if (!arr.length) continue;
+            await new Promise((res,rej) => {
+              const tx = db.transaction([s], 'readwrite');
+              const store = tx.objectStore(s);
+              for (const rec of arr) {
+                const toPut = Object.assign({}, rec);
+                if (s === 'imagenes' && toPut.blob && typeof toPut.blob === 'string') {
+                  toPut.blob = dataURLtoBlob(toPut.blob);
+                }
+                store.put(toPut);
+              }
+              tx.oncomplete = () => res();
+              tx.onerror = () => rej(tx.error);
+            });
+          }
+        }
+
+        function dataURLtoBlob(dataurl) {
+          const arr = dataurl.split(',');
+          const mime = arr[0].match(/:(.*?);/)[1];
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) u8arr[n] = bstr.charCodeAt(n);
+          return new Blob([u8arr], { type: mime });
+        }
+      });
+    </script>
+
+</body>
+</html>

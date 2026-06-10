@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Calificaciones - CEPCI</title>
+    <style>
+        body{font-family:Arial, sans-serif; margin:0; background:#f7f7f7}
+        .header{background:#8c1936;color:#fff;padding:14px;display:flex;justify-content:space-between;align-items:center}
+        .back{background:#CFB53B;color:#8c1936;padding:8px 12px;border-radius:8px;cursor:pointer}
+        .container{max-width:1100px;margin:20px auto;padding:20px;background:#fff;border-radius:12px}
+        .controls{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+        select,input{padding:8px;border:2px solid #8c1936;border-radius:8px}
+        /* ensure dropdown options appear above other elements in Electron */
+        select {
+            position: relative;
+            z-index: 99999;
+            -webkit-appearance: menulist-button;
+        }
+        /* prevent parent containers from clipping native dropdowns */
+        .container, .controls, #alumnosContainer { overflow: visible; }
+        .alumnos{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+        .alumno{border:1px solid #ddd;padding:10px;border-radius:8px;background:#fafafa}
+        .toast{position:fixed;right:20px;bottom:20px;background:#323232;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.2);opacity:0;transform:translateY(10px);transition:opacity .25s,transform .25s}
+        .toast.show{opacity:1;transform:translateY(0)}
+        /* Boleta (preview) styles */
+        .boleta{padding:18px;border:1px solid #ddd;border-radius:10px;background:#fff}
+        .boleta-header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:12px}
+        .boleta-title{font-size:18px;color:#8c1936;font-weight:700}
+        .boleta-meta{font-size:13px;color:#444}
+        .boleta-table{width:100%;border-collapse:collapse;margin-top:8px}
+        .boleta-table th,.boleta-table td{border:1px solid #eee;padding:8px;text-align:left;font-size:13px}
+        .boleta-table th{background:#f9f5f5;color:#8c1936}
+        @media print{ .toast{display:none} .controls{display:none} .boleta{box-shadow:none;border:none} }
+        .materia-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+        .btn{padding:8px 10px;border-radius:8px;border:none;background:#8c1936;color:#fff;cursor:pointer}
+        .btn.secondary{background:#CFB53B;color:#8c1936}
+        .actions{display:flex;gap:8px;margin-top:12px}
+        #preview{display:none}
+        /* Group buttons (replacement for dropdown) */
+        .grp-buttons{display:inline-flex;gap:8px;flex-wrap:wrap}
+        .grp-btn{padding:8px 12px;border:2px solid #8c1936;border-radius:8px;background:#fff;color:#8c1936;cursor:pointer;user-select:none}
+        .grp-btn:hover{background:#f6f6f6}
+        .grp-btn.active{background:#8c1936;color:#fff}
+    </style>
+    <script src="js/jspdf.min.js"></script>
+    <script src="js/jspdf-simple.js"></script>
+    <script>
+        // Early minimal stub for very old Electron/Chromium (Windows 7).
+        // Place before loading `js/db.js` so inline `onclick` handlers won't throw
+        (function(){
+            var noAsync = false;
+            try { new Function('(async function(){})')(); } catch(e) { noAsync = true; }
+            if (!noAsync) return;
+            window._legacyEarlyNoAsync = true;
+            if (!window.mostrarToast) window.mostrarToast = function(t){ try{ console.log('[toast]',t); }catch(e){} };
+            var msg = 'Funcionalidad limitada: actualice el sistema o use Windows 10/11.';
+            window.cargarAlumnosPorGrupo = function(){ window.mostrarToast(msg); };
+            window.generarPreview = function(){ window.mostrarToast(msg); };
+            window.descargarImagen = function(){ window.mostrarToast(msg); };
+            window.descargarPDF = function(){ window.mostrarToast(msg); };
+        })();
+    </script>
+    <script src="js/db.js"></script>
+    <script>
+        // Legacy fallback for older Electron/Chromium (Windows 7):
+        // If the engine does not support async functions, define safe promise-based stubs
+        (function(){
+            var noAsync = false;
+            try { new Function('(async function(){})')(); } catch(e) { noAsync = true; }
+            if (!noAsync) return;
+            window._legacyEnvNoAsync = true;
+            // Ensure mostrarToast exists
+            if (!window.mostrarToast) window.mostrarToast = function(t){ try{ console.log(t); }catch(e){} };
+            // Provide minimal promise-based cargarAlumnosPorGrupo so onclick won't throw
+            window.cargarAlumnosPorGrupo = function(){
+                window.mostrarToast('Cargando grupos (modo compatibilidad)...');
+                return initIndexedDB().then(function(){
+                    return cargarGrupos();
+                }).then(function(gs){
+                    grupos = gs || [];
+                    var sel = document.getElementById('selGrupo');
+                    if (sel) sel.innerHTML = '<option value="">-- Seleccione Grupo --</option>' + (grupos||[]).map(function(g){ return '<option value="'+g.id+'">'+(g.nombre||('Grupo '+g.id))+'</option>'; }).join('');
+                    if (grupos && grupos.length>0) { if (sel) sel.style.display='none'; }
+                    renderGrupoButtons();
+                }).catch(function(err){ console.error('Fallback cargarAlumnosPorGrupo error',err); mostrarToast('Error cargando grupos'); });
+            };
+            window.generarPreview = function(){ mostrarToast('Vista previa no disponible en este modo'); };
+        })();
+    </script>
+    <script>
+        if (sessionStorage.getItem('logged') !== 'true') location.href = 'index.html';
+        let grupos = [];
+        let alumnos = [];
+        let materias = [];
+
+        async function initPage() {
+            await initIndexedDB();
+            try {
+                grupos = await cargarGrupos();
+            } catch (e) {
+                console.error('Error cargando grupos:', e);
+                mostrarToast('Error cargando grupos');
+                grupos = [];
+            }
+            try { materias = await cargarMaterias(); } catch(e){ materias = []; }
+            const sel = document.getElementById('selGrupo');
+            sel.innerHTML = '<option value="">-- Seleccione Grupo --</option>' + (grupos||[]).map(g=>`<option value="${g.id}">${g.nombre||('Grupo '+g.id)}</option>`).join('');
+            // If we loaded groups, prefer the button UI; otherwise show native select as fallback
+            if (grupos && grupos.length > 0) {
+                sel.style.display = 'none';
+            } else {
+                sel.style.display = 'inline-block';
+            }
+            renderGrupoButtons();
+        }
+
+        function renderGrupoButtons() {
+            const container = document.getElementById('selGrupoCustom');
+            const sel = document.getElementById('selGrupo');
+            container.innerHTML = '';
+            if (!grupos || grupos.length === 0) {
+                // Show helpful message + reload button for environments where groups couldn't be loaded
+                const msg = document.createElement('div');
+                msg.style.color = '#666';
+                msg.innerHTML = 'No se encontraron grupos.';
+                const rb = document.createElement('button'); rb.className='btn'; rb.style.marginLeft='8px'; rb.textContent='Recargar';
+                rb.addEventListener('click', async () => {
+                    mostrarToast('Recargando grupos...');
+                    try {
+                        grupos = await cargarGrupos();
+                        sel.innerHTML = '<option value="">-- Seleccione Grupo --</option>' + grupos.map(g=>`<option value="${g.id}">${g.nombre||('Grupo '+g.id)}</option>`).join('');
+                        if (grupos && grupos.length>0) { sel.style.display='none'; }
+                        renderGrupoButtons();
+                    } catch (e) {
+                        console.error('Recargar grupos error:', e);
+                        mostrarToast('Error recargando grupos');
+                    }
+                });
+                msg.appendChild(rb);
+                container.appendChild(msg);
+                return;
+            }
+            const box = document.createElement('div'); box.className = 'grp-buttons';
+            grupos.forEach(g => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'grp-btn';
+                b.textContent = g.nombre || ('Grupo ' + g.id);
+                b.setAttribute('data-val', g.id);
+                b.addEventListener('click', async () => {
+                    // set native select for compatibility and mark active
+                    sel.value = g.id;
+                    // update active styles
+                    box.querySelectorAll('.grp-btn').forEach(x=>x.classList.remove('active'));
+                    b.classList.add('active');
+                    await cargarAlumnosPorGrupo();
+                });
+                box.appendChild(b);
+            });
+            container.appendChild(box);
+        }
+
+        async function cargarAlumnosPorGrupo() {
+            const gid = document.getElementById('selGrupo').value;
+            const cont = document.getElementById('alumnosContainer');
+            cont.innerHTML = '';
+            if (!gid) return;
+                const todos = await cargarAlumnos();
+                // Intentar obtener alumnos asignados desde la entidad grupo (alumno_ids)
+                let grupo = null;
+                try { grupo = await obtenerGrupoPorId(Number(gid)); } catch(e) { grupo = null; }
+                if (grupo && Array.isArray(grupo.alumno_ids) && grupo.alumno_ids.length > 0) {
+                    const idSet = new Set(grupo.alumno_ids.map(x => String(x)));
+                    alumnos = todos.filter(a => idSet.has(String(a.id)));
+                } else {
+                    // Fallback: filtrar por propiedad alumno.grupoId si existe
+                    alumnos = todos.filter(a => String(a.grupoId) === String(gid));
+                }
+                // Mostrar info del grupo (horario y maestro)
+                mostrarInfoGrupo(grupo);
+                if (!alumnos || alumnos.length === 0) { cont.innerHTML = '<div class="empty">No hay alumnos en este grupo.</div>'; return; }
+
+            for (const a of alumnos) {
+                const box = document.createElement('div'); box.className = 'alumno';
+                box.innerHTML = `<div><strong>${a.nombre || ''} ${a.apellido || ''}</strong> <div style="font-size:12px;color:#666">Código: ${a.codigo||''}</div></div>`;
+                // materias
+                    // precargar calificaciones existentes para este alumno
+                    const califsAlumno = await cargarCalificacionesPorAlumno(a.id);
+                    for (const m of materias) {
+                        const row = document.createElement('div'); row.className='materia-row';
+                        const label = document.createElement('div'); label.style.flex='1'; label.textContent = m.nombre || ('Materia '+m.id);
+                        const input = document.createElement('input'); input.type='text'; input.placeholder='Calificación'; input.dataset.alumno = a.id; input.dataset.materia = m.id; input.style.width='100px';
+                        const exists = califsAlumno.find(c => Number(c.materiaId) === Number(m.id) && Number(c.grupoId) === Number(document.getElementById('selGrupo').value));
+                        if (exists) { input.value = exists.calificacion; input.dataset.califId = exists.id; }
+                        row.appendChild(label); row.appendChild(input);
+                        box.appendChild(row);
+                    }
+                const actions = document.createElement('div'); actions.className='actions';
+                const btnSave = document.createElement('button'); btnSave.className='btn secondary'; btnSave.textContent='Guardar';
+                btnSave.onclick = () => guardarCalificacionesAlumno(box);
+                actions.appendChild(btnSave);
+                // Descargar por alumno (PNG)
+                const btnPNG = document.createElement('button'); btnPNG.className='btn'; btnPNG.textContent = 'Descargar (PNG)';
+                btnPNG.onclick = () => generarBoletaAlumnoPNG(a);
+                actions.appendChild(btnPNG);
+                // Abrir vista imprimible (usuario puede Guardar como PDF)
+                const btnPDF = document.createElement('button'); btnPDF.className='btn'; btnPDF.textContent = 'Imprimir/Guardar PDF';
+                btnPDF.onclick = () => abrirBoletaAlumnoPDF(a);
+                actions.appendChild(btnPDF);
+                box.appendChild(actions);
+                cont.appendChild(box);
+            }
+        }
+
+        function mostrarToast(text, timeout = 3000) {
+            let t = document.getElementById('globalToast');
+            if (!t) {
+                t = document.createElement('div'); t.id = 'globalToast'; t.className = 'toast'; document.body.appendChild(t);
+            }
+            t.textContent = text;
+            t.classList.add('show');
+            clearTimeout(t._hideTimer);
+            t._hideTimer = setTimeout(()=> t.classList.remove('show'), timeout);
+        }
+
+        async function guardarCalificacionesAlumno(box) {
+            const inputs = box.querySelectorAll('input[data-alumno]');
+            if (!inputs || inputs.length === 0) return mostrarToast('No se encontraron calificaciones para guardar');
+            const alumnoId = Number(inputs[0].dataset.alumno);
+            const gid = Number(document.getElementById('selGrupo').value);
+            let saved = 0;
+            const saveBtn = box.querySelector('button.btn.secondary');
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.6'; }
+            for (const inp of inputs) {
+                const valor = inp.value.trim();
+                if (!valor) continue;
+                const materiaId = Number(inp.dataset.materia);
+                const existingId = inp.dataset.califId ? Number(inp.dataset.califId) : null;
+                try {
+                    if (existingId) {
+                        await actualizarCalificacion({ id: existingId, alumnoId, grupoId: gid, materiaId, calificacion: valor });
+                    } else {
+                        const savedObj = await guardarCalificacion({ alumnoId, grupoId: gid, materiaId, calificacion: valor });
+                        if (savedObj && savedObj.id) inp.dataset.califId = savedObj.id;
+                    }
+                    saved++;
+                } catch (e) {
+                    console.error('Error guardando/actualizando calificacion:', e);
+                }
+            }
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+            if (saved > 0) {
+                // refresh current group to reflect saved values immediately
+                try {
+                    await cargarAlumnosPorGrupo();
+                } catch(e) { console.error('Error recargando alumnos tras guardar:', e); }
+                mostrarToast('✓ Calificaciones guardadas ('+saved+')');
+            } else {
+                mostrarToast('No se guardaron calificaciones (valores vacíos)');
+            }
+        }
+
+        async function generarPreview() {
+            const gid = document.getElementById('selGrupo').value; if (!gid) { mostrarToast('Seleccione grupo'); return; }
+            const cont = document.getElementById('alumnosContainer'); if (!cont.children.length){ mostrarToast('Cargue alumnos'); return; }
+            // crear vista previa en div#preview (boleta)
+            const preview = document.getElementById('preview'); preview.innerHTML = '';
+            const grupo = grupos.find(g=>String(g.id)===String(gid)) || await obtenerGrupoPorId(Number(gid));
+            const header = document.createElement('div'); header.className = 'boleta-header';
+            const left = document.createElement('div'); left.innerHTML = `<div class="boleta-title">Boleta de Calificaciones</div><div class="boleta-meta">Grupo: ${grupo?.nombre||gid}</div>`;
+            const right = document.createElement('div'); right.className='boleta-meta'; right.innerHTML = `Horario: ${grupo?.horario||grupo?.turno||'-'}<br>Fecha: ${new Date().toLocaleDateString()}`;
+            header.appendChild(left); header.appendChild(right);
+            const boleta = document.createElement('div'); boleta.className = 'boleta';
+            boleta.appendChild(header);
+
+            // tabla: alumno | materia1 | materia2 ...
+            const table = document.createElement('table'); table.className='boleta-table';
+            const thead = document.createElement('thead'); const thr = document.createElement('tr');
+            thr.appendChild(document.createElement('th')).textContent = 'Alumno';
+            for (const m of materias) { const th = document.createElement('th'); th.textContent = m.nombre || ('Materia '+m.id); thr.appendChild(th); }
+            thead.appendChild(thr); table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            for (const a of alumnos) {
+                const tr = document.createElement('tr');
+                const tdName = document.createElement('td'); tdName.textContent = (a.nombre||'') + ' ' + (a.apellido||''); tr.appendChild(tdName);
+                const califs = await cargarCalificacionesPorAlumno(a.id);
+                for (const m of materias) {
+                    const td = document.createElement('td');
+                    const c = califs.find(x=>Number(x.materiaId)===Number(m.id));
+                    td.textContent = c ? c.calificacion : '';
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            boleta.appendChild(table);
+            preview.appendChild(boleta);
+            preview.style.display='block';
+            preview.scrollIntoView({behavior:'smooth'});
+        }
+
+        // Genera una boleta en canvas y descarga PNG (sin librerías externas)
+        async function generarBoletaAlumnoPNG(alumno) {
+            if (!alumno) return mostrarToast('Alumno no encontrado');
+            const gid = document.getElementById('selGrupo').value;
+            const grupo = grupos.find(g=>String(g.id)===String(gid)) || await obtenerGrupoPorId(Number(gid));
+            const califs = await cargarCalificacionesPorAlumno(alumno.id);
+
+            const width = 900; const padding = 20; const lineH = 26;
+            const height = 200 + (materias.length * lineH);
+            const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            // background
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,width,height);
+            // header
+            ctx.fillStyle = '#8c1936'; ctx.fillRect(0,0,width,60);
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Arial'; ctx.fillText('Boleta de Calificaciones', 24, 38);
+
+            // meta
+            ctx.fillStyle = '#333'; ctx.font = '14px Arial';
+            ctx.fillText('Alumno: ' + ( (alumno.nombre||'') + ' ' + (alumno.apellido||'') ), 24, 90);
+            ctx.fillText('Código: ' + (alumno.codigo||''), 24, 90 + lineH);
+            ctx.fillText('Grupo: ' + (grupo?.nombre||gid), 400, 90);
+            ctx.fillText('Horario: ' + (grupo?.horario || '-'), 400, 90 + lineH);
+
+            // table header
+            let y = 140;
+            ctx.fillStyle = '#f5f5f5'; ctx.fillRect(24, y-18, width-48, lineH);
+            ctx.fillStyle = '#8c1936'; ctx.font = 'bold 14px Arial'; ctx.fillText('Materia', 30, y-4);
+            ctx.fillText('Calificación', 600, y-4);
+            ctx.fillStyle = '#333'; ctx.font = '14px Arial';
+
+            for (const m of materias) {
+                const c = califs.find(x=>Number(x.materiaId)===Number(m.id));
+                ctx.fillStyle = '#fff'; ctx.fillRect(24, y, width-48, lineH-2);
+                ctx.fillStyle = '#333'; ctx.fillText(m.nombre || ('Materia '+m.id), 30, y + lineH - 10);
+                ctx.fillText(c ? String(c.calificacion) : '', 600, y + lineH - 10);
+                y += lineH;
+            }
+
+            // descargar
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            const safeName = ((alumno.nombre||'') + '_' + (alumno.apellido||'')).replace(/\s+/g,'_');
+            a.download = `boleta_${safeName || alumno.id}_${Date.now()}.png`;
+            a.click();
+        }
+
+        // Abre una vista imprimible de la boleta (usuario puede Guardar como PDF)
+        async function abrirBoletaAlumnoPDF(alumno) {
+            if (!alumno) return mostrarToast('Alumno no encontrado');
+            const gid = document.getElementById('selGrupo').value;
+            const grupo = grupos.find(g=>String(g.id)===String(gid)) || await obtenerGrupoPorId(Number(gid));
+            const califs = await cargarCalificacionesPorAlumno(alumno.id);
+            // Generar PDF con jsPDF
+            let doc = new jsPDF();
+            let y = 20;
+            doc.setFontSize(18);
+            doc.setTextColor(140,25,54);
+            doc.text('Boleta de Calificaciones', 20, y);
+            y += 12;
+            doc.setFontSize(12);
+            doc.setTextColor(51,51,51);
+            doc.text('Alumno: ' + ((alumno.nombre||'') + ' ' + (alumno.apellido||'')), 20, y);
+            y += 8;
+            doc.text('Código: ' + (alumno.codigo||''), 20, y);
+            doc.text('Grupo: ' + (grupo?.nombre||gid), 120, y-8);
+            doc.text('Horario: ' + (grupo?.horario || '-'), 120, y);
+            y += 12;
+            doc.setFontSize(14);
+            doc.setTextColor(140,25,54);
+            doc.text('Materia', 20, y);
+            doc.text('Calificación', 120, y);
+            y += 6;
+            doc.setFontSize(12);
+            doc.setTextColor(51,51,51);
+            for (const m of materias) {
+                const c = califs.find(x=>Number(x.materiaId)===Number(m.id));
+                doc.text(m.nombre || ('Materia '+m.id), 20, y);
+                doc.text(c ? String(c.calificacion) : '', 120, y);
+                y += 8;
+                if (y > 270) { doc.addPage(); y = 20; }
+            }
+            const safeName = ((alumno.nombre||'') + '_' + (alumno.apellido||'')).replace(/\s+/g,'_');
+            doc.save(`boleta_${safeName || alumno.id}_${Date.now()}.pdf`);
+        }
+
+        function mostrarInfoGrupo(grupo) {
+            const horarioEl = document.getElementById('grpHorario');
+            const maestroEl = document.getElementById('grpMaestro');
+            if (!grupo) {
+                horarioEl.textContent = '-';
+                maestroEl.textContent = '-';
+                return;
+            }
+            horarioEl.textContent = grupo.horario || (grupo.turno || '-') ;
+            // maestro_id en el objeto grupo
+            const maestroId = grupo.maestro_id || grupo.maestro || null;
+            if (!maestroId) {
+                maestroEl.textContent = '-';
+                return;
+            }
+            // buscar nombre del maestro
+            const m = (window._maestrosCache || []).find(x => String(x.id) === String(maestroId));
+            if (m) {
+                maestroEl.textContent = m.nombre || (m.nombre_completo || ('ID:'+m.id));
+            } else {
+                // cargar maestros y buscar
+                cargarMaestros().then(list => {
+                    window._maestrosCache = list;
+                    const mm = list.find(x => String(x.id) === String(maestroId));
+                    maestroEl.textContent = mm ? (mm.nombre || ('ID:'+mm.id)) : ('ID:'+maestroId);
+                }).catch(()=> { maestroEl.textContent = 'ID:'+maestroId; });
+            }
+        }
+
+        async function descargarImagen() {
+            const preview = document.getElementById('preview');
+            if (!preview.innerHTML.trim()) { mostrarToast('Genere la vista previa primero'); return; }
+            // Crear canvas manualmente
+            const width = 1200;
+            const height = preview.offsetHeight + 40;
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0,0,width,height);
+            ctx.font = 'bold 22px Arial';
+            ctx.fillStyle = '#8c1936';
+            ctx.fillText('Boleta de Calificaciones (Grupo)', 40, 40);
+            // Renderizar el preview como texto (simple)
+            let y = 80;
+            Array.from(preview.querySelectorAll('table tr')).forEach(tr => {
+                let x = 40;
+                Array.from(tr.children).forEach(td => {
+                    ctx.font = '16px Arial';
+                    ctx.fillStyle = '#333';
+                    ctx.fillText(td.textContent, x, y);
+                    x += 200;
+                });
+                y += 30;
+            });
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = 'calificaciones_'+Date.now()+'.png';
+            a.click();
+        }
+
+        async function descargarPDF() {
+            console.log('Iniciando descargarPDF...');
+            const preview = document.getElementById('preview');
+            if (!preview || !preview.innerHTML.trim()) {
+                console.log('No hay preview, mostrando toast');
+                mostrarToast('Genere la vista previa primero');
+                return;
+            }
+
+            try {
+                console.log('Recolectando datos de preview...');
+                // Recolectar datos de la tabla de vista previa
+                const rows = Array.from(preview.querySelectorAll('table tr')).map(tr =>
+                    Array.from(tr.children).map(td => td.textContent.trim())
+                );
+                console.log('Rows recolectadas:', rows.length);
+                if (!rows.length) {
+                    mostrarToast('No hay datos para exportar');
+                    return;
+                }
+
+                console.log('Creando PDF...');
+                // Crear PDF en landscape para que quepan más columnas
+                const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const margin = 30;
+                const usableWidth = pageWidth - margin * 2;
+
+                // Función para dividir texto si no existe splitTextToSize
+                const splitTextToSize = (text, maxWidth) => {
+                    // Estimación simple: ~6pt por carácter
+                    const maxChars = Math.floor(maxWidth / 6);
+                    const lines = [];
+                    let current = '';
+                    const words = text.split(' ');
+                    for (const word of words) {
+                        if ((current + ' ' + word).length <= maxChars) {
+                            current = current ? current + ' ' + word : word;
+                        } else {
+                            if (current) lines.push(current);
+                            current = word;
+                        }
+                    }
+                    if (current) lines.push(current);
+                    return lines;
+                };
+
+                // Encabezado
+                let y = margin;
+                doc.setFontSize(18);
+                doc.setTextColor(140, 25, 54);
+                doc.text('Boleta de Calificaciones (Grupo)', margin, y);
+                y += 22;
+
+                // Calcula anchos de columnas
+                const headers = rows[0] || [];
+                const dataRows = rows.slice(1);
+
+                // Primera columna para alumno
+                const firstColWidth = Math.min(220, usableWidth * 0.25);
+                const remainingWidth = usableWidth - firstColWidth;
+
+                // Dividir materias en bloques para que no queden demasiado angostas
+                const subjectCols = headers.slice(1);
+                const minColWidth = 60;
+                const maxColsPerPage = Math.max(1, Math.floor(remainingWidth / minColWidth));
+                const chunks = [];
+                for (let i = 0; i < subjectCols.length; i += maxColsPerPage) {
+                    chunks.push(subjectCols.slice(i, i + maxColsPerPage));
+                }
+                console.log('Chunks creados:', chunks.length);
+
+                const lineHeight = 14;
+                const baseFontSize = 11;
+                const headerFontSize = 12;
+
+                const renderChunk = (chunkIndex) => {
+                    console.log('Renderizando chunk:', chunkIndex);
+                    const cols = [headers[0]].concat(chunks[chunkIndex] || []);
+                    const colCount = cols.length;
+                    const chunkWidth = firstColWidth + (remainingWidth / maxColsPerPage) * cols.slice(1).length;
+                    const colWidths = [firstColWidth];
+                    const perSubjectWidth = (usableWidth - firstColWidth) / Math.max(1, cols.length - 1);
+                    for (let i = 1; i < cols.length; i++) colWidths.push(perSubjectWidth);
+
+                    // Header row
+                    doc.setFontSize(headerFontSize);
+                    doc.setTextColor(20, 20, 20);
+                    let x = margin;
+                    for (let c = 0; c < cols.length; c++) {
+                        const txt = cols[c];
+                        const maxWidth = colWidths[c] - 6;
+                        const lines = splitTextToSize(txt, maxWidth);
+                        doc.text(lines, x + 3, y);
+                        x += colWidths[c];
+                    }
+                    y += lineHeight * 1.2;
+
+                    // Body rows
+                    doc.setFontSize(baseFontSize);
+                    dataRows.forEach(r => {
+                        if (y + lineHeight * 2 > pageHeight - margin) {
+                            doc.addPage();
+                            y = margin;
+                        }
+                        x = margin;
+                        const rowCols = [r[0]].concat(r.slice(1 + chunkIndex * maxColsPerPage, 1 + chunkIndex * maxColsPerPage + cols.length - 1));
+                        const rowHeights = [];
+                        for (let c = 0; c < rowCols.length; c++) {
+                            const txt = rowCols[c] || '';
+                            const maxWidth = colWidths[c] - 6;
+                            const lines = splitTextToSize(txt, maxWidth);
+                            rowHeights.push(lines.length * lineHeight);
+                        }
+                        const rowHeight = Math.max(...rowHeights, lineHeight);
+                        for (let c = 0; c < rowCols.length; c++) {
+                            const txt = rowCols[c] || '';
+                            const maxWidth = colWidths[c] - 6;
+                            const lines = splitTextToSize(txt, maxWidth);
+                            doc.text(lines, x + 3, y);
+                            x += colWidths[c];
+                        }
+                        y += rowHeight;
+                    });
+                };
+
+                // Renderizar cada bloque de materias en páginas separadas si es necesario
+                chunks.forEach((_, idx) => {
+                    if (idx > 0) { doc.addPage(); y = margin; }
+                    renderChunk(idx);
+                });
+
+                console.log('Guardando PDF...');
+                doc.save('calificaciones_' + Date.now() + '.pdf');
+                console.log('PDF guardado exitosamente');
+            } catch (e) {
+                console.error('Error en descargarPDF:', e);
+                mostrarToast('Error generando PDF: ' + e.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){
+            initPage();
+            // Wire buttons by ID for compatibility
+            try {
+                var btnCargar = document.getElementById('btnCargar');
+                if (btnCargar) { btnCargar.addEventListener('click', function(){ if (typeof window.cargarAlumnosPorGrupo === 'function') return window.cargarAlumnosPorGrupo(); mostrarToast('Función no disponible'); }); }
+                var sel = document.getElementById('selGrupo');
+                if (sel) { sel.addEventListener('change', function(){ if (typeof window.cargarAlumnosPorGrupo === 'function') return window.cargarAlumnosPorGrupo(); }); }
+                var btnPreview = document.getElementById('btnPreview');
+                if (btnPreview) { btnPreview.addEventListener('click', function(){ if (typeof window.generarPreview === 'function') return window.generarPreview(); mostrarToast('Función no disponible'); }); }
+                var btnDescImg = document.getElementById('btnDescImg');
+                if (btnDescImg) { btnDescImg.addEventListener('click', function(){ if (typeof window.descargarImagen === 'function') return window.descargarImagen(); mostrarToast('Función no disponible'); }); }
+                var btnDescPDF = document.getElementById('btnDescPDF');
+                if (btnDescPDF) { btnDescPDF.addEventListener('click', function(){ if (typeof window.descargarPDF === 'function') return window.descargarPDF(); mostrarToast('Función no disponible'); }); }
+                // Header actualizar
+                var btnActualizarHeader = document.getElementById('btnActualizarHeader');
+                if (btnActualizarHeader) {
+                    btnActualizarHeader.addEventListener('click', function(){
+                        try { mostrarToast('Actualizando...'); Promise.resolve().then(initPage).then(function(){ mostrarToast('Módulo actualizado'); }).catch(function(){ mostrarToast('Error actualizando'); }); } catch(e){ console.error(e); }
+                    });
+                }
+            } catch(e) { console.error('Error wiring buttons:', e); }
+        });
+    </script>
+</head>
+<body>
+    <div class="header">
+        Calificaciones
+        <div style="display:flex;gap:8px;align-items:center">
+            <button class="back" onclick="location.href='dashboard.html'">Regresar</button>
+            <button id="btnActualizarHeader" class="back" style="margin-left:6px">Actualizar</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="controls">
+            <label>Grupo:</label>
+            <!-- hidden native select kept for compatibility -->
+            <select id="selGrupo" style="display:none"></select>
+            <!-- Custom dropdown for Electron/native issues -->
+            <div id="selGrupoCustom" class="custom-select" aria-haspopup="listbox" aria-expanded="false"></div>
+            <button id="btnCargar" class="btn">Cargar</button>
+            <div id="grupoInfo" style="margin-left:12px; display:flex; gap:10px; align-items:center;">
+                <div style="font-size:13px;color:#333">Horario: <span id="grpHorario">-</span></div>
+                <div style="font-size:13px;color:#333">Maestro: <span id="grpMaestro">-</span></div>
+            </div>
+            <button id="btnPreview" class="btn">Vista Previa</button>
+            <button id="btnDescImg" class="btn secondary">Descargar Imagen</button>
+            <button id="btnDescPDF" class="btn secondary">Descargar PDF</button>
+        </div>
+        <div id="alumnosContainer" class="alumnos"></div>
+        <div id="preview" style="margin-top:18px;padding:12px;background:#fff;border-radius:8px"></div>
+    </div>
+</body>
+</html>

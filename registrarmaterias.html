@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Materia - CEPCI</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+        }
+
+        .header {
+            background: #8c1936;
+            padding: 15px;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back {
+            background: #CFB53B;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #8c1936;
+            font-weight: bold;
+            border: none;
+        }
+
+        .back:hover {
+            background: white;
+        }
+
+        .container {
+            margin: 30px auto;
+            width: 90%;
+            max-width: 600px;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 14px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #001f54;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #8c1936;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #8c1936;
+            border-radius: 10px;
+            font-size: 15px;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: #CFB53B;
+            box-shadow: 0 0 6px #CFB53B;
+            outline: none;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            background: #8c1936;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .btn.secondary {
+            background: #f1f1f1;
+            color: #333;
+            border: 1px solid rgba(11,37,64,0.06);
+        }
+
+        .btn.secondary:hover {
+            background: #fff;
+        }
+
+        .msg {
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 20px;
+        }
+
+        .list {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .materia-item {
+            background: white;
+            margin-bottom: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #8c1936;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+
+        .materia-item h3 {
+            margin: 0 0 6px 0;
+            font-size: 16px;
+            color: #001f54;
+        }
+
+        .materia-item p {
+            margin: 4px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .empty {
+            text-align: center;
+            color: #8c1936;
+            padding: 20px;
+        }
+    </style>
+
+    <!-- IndexedDB helper -->
+    <script src="js/db.js"></script>
+
+    <script>
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        async function registrarMateria(event) {
+            event.preventDefault();
+
+            const nombre = document.getElementById("nombre").value.trim();
+            const codigo = document.getElementById("codigo").value.trim();
+            const duracion = document.getElementById("duracion").value.trim();
+            const msg = document.getElementById("msg");
+
+            msg.textContent = '';
+
+            if (!nombre || !duracion) {
+                msg.style.color = "red";
+                msg.textContent = "El nombre y la duración son obligatorios (código es opcional).";
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+
+                // Cargar materias actuales
+                const materias = await cargarMaterias();
+
+                // Verificar si el código ya existe
+                const existe = materias && materias.find(m => String(m.codigo).toLowerCase() === String(codigo).toLowerCase());
+
+                const nuevaMateria = {
+                    nombre,
+                    codigo,
+                    duracion
+                };
+
+                if (existe) {
+                    // Si existe, actualizar
+                    nuevaMateria.id = existe.id;
+                    await actualizarMateria(nuevaMateria);
+                    msg.style.color = "green";
+                    msg.textContent = "Materia actualizada exitosamente ✔";
+                } else {
+                    // Si no existe, agregar
+                    await agregarMateria(nuevaMateria);
+                    msg.style.color = "green";
+                    msg.textContent = "Materia registrada exitosamente ✔";
+                }
+
+                // Limpiar formulario
+                document.getElementById("materiaForm").reset();
+
+                // Actualizar lista
+                await mostrarMaterias();
+            } catch (error) {
+                console.error("Error al registrar materia:", error);
+                msg.style.color = "red";
+                msg.textContent = "Error al registrar materia: " + (error.message || error);
+            }
+        }
+
+        async function mostrarMaterias() {
+            try {
+                await initIndexedDB();
+                const materias = await cargarMaterias();
+                const lista = document.getElementById("lista");
+
+                if (!materias || materias.length === 0) {
+                    lista.innerHTML = '<div class="empty">No hay materias registradas.</div>';
+                    return;
+                }
+
+                lista.innerHTML = "";
+                materias.forEach((materia) => {
+                    const item = document.createElement("div");
+                    item.classList.add("materia-item");
+                    item.innerHTML = `
+                        <h3>${escapeHtml(materia.nombre)} (${escapeHtml(materia.codigo)})</h3>
+                        <p><strong>Duración:</strong> ${escapeHtml(String(materia.duracion))} Clases</p>
+                    `;
+                    lista.appendChild(item);
+                });
+            } catch (error) {
+                console.error("Error al mostrar materias:", error);
+                document.getElementById("lista").innerHTML = '<div class="empty">Error cargando materias.</div>';
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Inicializar IndexedDB
+            try {
+                await initIndexedDB();
+            } catch (e) {
+                console.error('Error inicializando IndexedDB:', e);
+            }
+            // Mostrar materias al cargar
+            await mostrarMaterias();
+
+            // Conectar formulario
+            const form = document.getElementById("materiaForm");
+            if (form) {
+                form.addEventListener('submit', registrarMateria);
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <div class="header">
+        Registrar Materia - CEPCI
+        <button class="back" onclick="location.href='dashboard.html'">Regresar</button>
+    </div>
+
+    <div class="container">
+        <h2>Formulario de Registro de Materias</h2>
+
+        <form id="materiaForm">
+            <label for="nombre">Nombre de la Materia:</label>
+            <input id="nombre" type="text" placeholder="Ejemplo: Matemáticas" required />
+
+            <label for="codigo">Código o Identificador (Opcional):</label>
+            <input id="codigo" type="text" placeholder="Ejemplo: MAT001" />
+
+            <label for="duracion">Duración (número de clases)</label>
+            <input id="duracion" type="number" placeholder="Ejemplo: 4" min="1" required />
+
+            <div class="row">
+                <button type="submit" class="btn">Registrar Materia</button>
+                <button type="button" class="btn secondary" onclick="document.getElementById('materiaForm').reset()">Limpiar</button>
+            </div>
+
+            <div id="msg" class="msg"></div>
+        </form>
+
+        <div class="list" id="lista" aria-live="polite"></div>
+    </div>
+
+</body>
+</html>

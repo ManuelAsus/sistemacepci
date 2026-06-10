@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realizar Pagos - CEPCI</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f7f7f7; }
+        .header { background: #8c1936; padding: 15px; color: white; font-size: 22px; font-weight: bold; display:flex;justify-content:space-between;align-items:center; }
+        .back { background: #CFB53B; padding: 10px 15px; border-radius: 8px; cursor:pointer; color:#8c1936; font-weight:bold; }
+        .back:hover { background:white; }
+        .container { margin: 30px auto; width:90%; max-width:600px; background:white; padding:25px; border-radius:15px; box-shadow:0 0 14px rgba(0,0,0,0.2); }
+        h2 { color:#001f54; text-align:center; margin-bottom:25px; }
+        label { font-weight:bold; color:#8c1936; display:block; margin-bottom:8px; }
+        input { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; font-size:15px; box-sizing:border-box; margin-bottom:15px; }
+        input:focus { border-color:#CFB53B; box-shadow:0 0 6px #CFB53B; outline:none; }
+        .btn{padding:10px 14px;background:#8c1936;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold}
+        .btn:hover{background:#CFB53B;color:#8c1936}
+        .search-row{display:flex;gap:10px;margin-bottom:18px;align-items:center}
+        .search-row input{flex:1;padding:10px;border:2px solid #8c1936;border-radius:8px;font-size:15px}
+        .search-row .btn{width:auto;padding:10px 12px}
+        .result-card{display:none;border:2px solid #8c1936;border-radius:10px;padding:16px;background:#f9f9f9;margin-top:12px}
+        .result-card.visible{display:block}
+        .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+        .label{font-weight:bold;color:#8c1936}
+        .monto-display{font-size:20px;font-weight:bold;color:#2e7d32}
+        .pay-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+        .pay-input{padding:10px;border:1px solid rgba(140,25,54,0.12);border-radius:8px;font-size:15px;width:160px}
+        .pay-btn{background:#4caf50;color:white;border:none;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:bold}
+        .pay-btn:disabled{opacity:.6;cursor:not-allowed}
+        .msg{margin-top:12px;padding:10px;border-radius:6px;font-weight:bold;display:none}
+        .msg.error{background:#ffebee;color:#c62828}
+        .msg.success{background:#e8f5e9;color:#2e7d32}
+        .msg.info{background:#e3f2fd;color:#1565c0}
+        .empty{padding:12px;border-radius:8px;background:#fff8e6;border:1px solid rgba(255,193,7,0.15);color:#5b3a00;font-weight:700;text-align:center;margin-top:12px}
+        @media(max-width:520px){.info-grid{grid-template-columns:1fr}}
+    </style>
+
+    <script src="js/jspdf-simple.js"></script>
+    <script src="js/db.js"></script>
+
+    <script>
+    let alumnoActualId = null;
+    let currentAlumno = null;
+
+    function normalizarTexto(texto) {
+        return (texto || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    async function tryMigrateLocalStorageToIndexedDB() {
+        try {
+            const ls = localStorage.getItem('registroAlumnos');
+            if (!ls) return false;
+            const parsed = JSON.parse(ls);
+            if (!parsed || !Array.isArray(parsed.alumnos) || parsed.alumnos.length === 0) return false;
+            await initIndexedDB();
+            for (const a of parsed.alumnos) {
+                try { await agregarAlumno(a); } catch (e) { console.warn('Migración fallida:', e, a); }
+            }
+            console.log('Migración completada.');
+            return true;
+        } catch (e) {
+            console.error('Migración fallida', e);
+            return false;
+        }
+    }
+
+    async function ensureAlumnosAvailable() {
+        await initIndexedDB();
+        let alumnos = await cargarAlumnos();
+        if ((!alumnos || alumnos.length === 0) && localStorage.getItem('registroAlumnos')) {
+            const migrated = await tryMigrateLocalStorageToIndexedDB();
+            if (migrated) alumnos = await cargarAlumnos();
+        }
+        return alumnos || [];
+    }
+
+    // FUNCIÓN MEJORADA PARA OBTENER PAGOS TOTALES SEGÚN CURSO
+    async function obtenerTotalPagosDelCurso(curso) {
+        // Normalizar el curso para comparación
+        const cursoNormalizado = (curso || '').toString().toLowerCase();
+        
+        console.log('🔍 Curso del alumno normalizado:', cursoNormalizado);
+        
+        let totalPayments = 55; // fallback por defecto
+        
+        if (cursoNormalizado.includes('comput')) {
+            const compPayments = await getSetting('computacion_payments');
+            console.log('📌 computacion_payments desde BD:', compPayments);
+            if (compPayments !== null && compPayments !== undefined) {
+                totalPayments = Number(compPayments);
+            }
+        } else if (cursoNormalizado.includes('belle')) {
+            const bellePayments = await getSetting('belleza_payments');
+            console.log('📌 belleza_payments desde BD:', bellePayments);
+            if (bellePayments !== null && bellePayments !== undefined) {
+                totalPayments = Number(bellePayments);
+            }
+        } else {
+            console.warn('⚠️ Curso no reconocido:', curso);
+        }
+        
+        console.log('✅ Total pagos determinado:', totalPayments);
+        return totalPayments;
+    }
+
+    async function obtenerCostoDelCurso(curso) {
+        const cursoNormalizado = (curso || '').toString().toLowerCase();
+        
+        let globalCost = 0;
+        
+        if (cursoNormalizado.includes('comput')) {
+            const compCost = await getSetting('computacion_cost');
+            if (compCost !== null && compCost !== undefined) {
+                globalCost = Number(compCost);
+            }
+        } else if (cursoNormalizado.includes('belle')) {
+            const belleCost = await getSetting('belleza_cost');
+            if (belleCost !== null && belleCost !== undefined) {
+                globalCost = Number(belleCost);
+            }
+        }
+        
+        return globalCost;
+    }
+
+    async function buscarAlumno() {
+        const buscarEl = document.getElementById("buscarInput");
+        const busqueda = buscarEl ? buscarEl.value.trim() : '';
+        const resultadoEl = document.getElementById("resultado");
+        const msg = document.getElementById("msg");
+        const sinResultado = document.getElementById("sinResultado");
+
+        if (msg) { msg.style.display = "none"; msg.textContent = ""; }
+        if (sinResultado) sinResultado.style.display = "none";
+
+        if (!busqueda) {
+            if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Ingrese un código o nombre para buscar."; }
+            if (resultadoEl) resultadoEl.classList.remove("visible");
+            return;
+        }
+
+        try {
+            const alumnos = await ensureAlumnosAvailable();
+            if (!alumnos || alumnos.length === 0) {
+                if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "No hay alumnos en la base de datos."; }
+                if (resultadoEl) resultadoEl.classList.remove("visible");
+                return;
+            }
+
+            const busquedaNormalizada = normalizarTexto(busqueda);
+            const alumno = alumnos.find(a => {
+                const c = normalizarTexto(a.codigo);
+                const n = normalizarTexto(a.nombre);
+                const m = normalizarTexto(a.matricula);
+                return (c && c.includes(busquedaNormalizada)) ||
+                       (n && n.includes(busquedaNormalizada)) ||
+                       (m && m.includes(busquedaNormalizada));
+            });
+
+            if (!alumno) {
+                if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Alumno no encontrado."; }
+                if (resultadoEl) resultadoEl.classList.remove("visible");
+                if (sinResultado) { sinResultado.style.display = "block"; sinResultado.textContent = "No se encontraron alumnos con esa búsqueda."; }
+                return;
+            }
+
+            console.log('👤 Alumno encontrado:', alumno);
+            console.log('📚 Curso del alumno:', alumno.curso);
+
+            // Inicializar campos básicos
+            if (alumno.pagos_realizados === undefined) alumno.pagos_realizados = 0;
+            if (!Array.isArray(alumno.pagos)) alumno.pagos = [];
+            if (alumno.monto_cobro === undefined) alumno.monto_cobro = 0;
+            if (alumno.adeudos === undefined) alumno.adeudos = 0;
+
+            // OBTENER VALORES DE SETTINGS BASADOS EN EL CURSO
+            const totalPayments = await obtenerTotalPagosDelCurso(alumno.curso);
+            const globalCost = await obtenerCostoDelCurso(alumno.curso);
+
+            console.log('💰 Costo global:', globalCost);
+            console.log('🔢 Total pagos:', totalPayments);
+
+            currentAlumno = alumno;
+
+            // Mostrar valor: SIEMPRE usar el valor de settings para mostrar, no el guardado en el alumno
+            const displayTotalPayments = totalPayments;
+
+            console.log('📊 Mostrar:', displayTotalPayments);
+
+            const el = id => document.getElementById(id);
+            if (el("infoNombre")) el("infoNombre").textContent = alumno.nombre || '-';
+            if (el("infoCodigo")) el("infoCodigo").textContent = alumno.codigo || '-';
+            if (el("infoMatricula")) el("infoMatricula").textContent = alumno.matricula || '-';
+            if (el("infoPagos")) el("infoPagos").textContent = `${alumno.pagos_realizados || 0}/${displayTotalPayments}`;
+            if (el("globalCosto")) el("globalCosto").textContent = `$${Number(globalCost || 0).toFixed(2)}`;
+
+            const assignedCost = alumno.costo_colegiatura != null && alumno.costo_colegiatura !== ''
+                ? Number(alumno.costo_colegiatura)
+                : (alumno.becado && alumno.custom_cost != null ? Number(alumno.custom_cost) : null);
+            const montoToShow = assignedCost != null ? assignedCost : globalCost;
+            if (el("montoMostrado")) el("montoMostrado").textContent = `$${Number(montoToShow || 0).toFixed(2)}`;
+
+            if (el('paymentsCount')) el('paymentsCount').textContent = `${alumno.pagos_realizados || 0}/${displayTotalPayments}`;
+
+            if (el('customAmount')) el('customAmount').value = alumno.becado && alumno.custom_cost != null ? alumno.custom_cost : '';
+            if (el('montoPago')) el('montoPago').value = Number(montoToShow || 0).toFixed(2);
+            if (el('becadoCheck')) el('becadoCheck').checked = !!alumno.becado;
+            if (el('infoAdeudos')) el('infoAdeudos').textContent = alumno.adeudos || 0;
+
+            alumnoActualId = alumno.id;
+            if (el("alumnoIndex")) el("alumnoIndex").value = alumnoActualId;
+
+            if (resultadoEl) resultadoEl.classList.add("visible");
+            if (msg) msg.style.display = "none";
+        } catch (e) {
+            console.error('❌ Error en buscarAlumno:', e);
+            const msgEl = document.getElementById("msg");
+            if (msgEl) { msgEl.style.display = "block"; msgEl.className = "msg error"; msgEl.textContent = "Error al buscar alumno: " + (e.message || e); }
+        }
+    }
+
+    async function realizarPago() {
+        const msg = document.getElementById("msg");
+        if (msg) { msg.style.display = "none"; msg.textContent = ""; }
+
+        if (!alumnoActualId && alumnoActualId !== 0) {
+            if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Alumno no seleccionado."; }
+            return;
+        }
+
+        // Confirmar acción antes de ejecutar el pago
+        const montoInput = document.getElementById("montoPago");
+        const montoConfirmar = montoInput && montoInput.value ? parseFloat(montoInput.value) : NaN;
+        const montoTexto = !isNaN(montoConfirmar) ? `$${montoConfirmar.toFixed(2)}` : "(monto no definido)";
+        if (!confirm(`¿Confirmar pago ${montoTexto} para este alumno?`)) {
+            return;
+        }
+
+        try {
+            await initIndexedDB();
+            const alumno = await obtenerAlumnoPorId(alumnoActualId);
+            if (!alumno) {
+                if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Alumno no encontrado en la base de datos."; }
+                return;
+            }
+
+            const adeudoEl = document.getElementById('adeudoCheck');
+            if (adeudoEl && adeudoEl.checked) {
+                // Registrar adeudo
+                if (alumno.adeudos === undefined) alumno.adeudos = 0;
+                alumno.adeudos += 1;
+                await actualizarAlumno(alumno);
+
+                // Registrar movimiento en caja
+                await agregarMovimiento({
+                    fecha: new Date().toISOString().split('T')[0],
+                    tipo: 'adeudo',
+                    alumno_id: alumno.id,
+                    alumno_nombre: alumno.nombre,
+                    timestamp: new Date().toISOString()
+                });
+
+                if (msg) { msg.style.display = "block"; msg.className = "msg success"; msg.textContent = `Adeudo registrado. Adeudos: ${alumno.adeudos}`; }
+
+                // Actualizar UI
+                const infoAdeudosEl = document.getElementById("infoAdeudos");
+                if (infoAdeudosEl) infoAdeudosEl.textContent = alumno.adeudos;
+
+                // Desmarcar checkbox
+                adeudoEl.checked = false;
+                return;
+            }
+
+            if (alumno.pagos_realizados === undefined) alumno.pagos_realizados = 0;
+            if (!Array.isArray(alumno.pagos)) alumno.pagos = [];
+            if (alumno.monto_cobro === undefined) alumno.monto_cobro = 0;
+
+            const becadoEl = document.getElementById('becadoCheck');
+            const customEl = document.getElementById('customAmount');
+            const montoInput = document.getElementById("montoPago");
+
+            // Obtener valores de settings basados en el curso
+            const totalPayments = await obtenerTotalPagosDelCurso(alumno.curso);
+            const globalCost = await obtenerCostoDelCurso(alumno.curso);
+
+            // Actualizar alumno con becado y costo personalizado
+            if (becadoEl && becadoEl.checked) {
+                alumno.becado = true;
+                if (customEl && customEl.value !== "") {
+                    const parsed = parseFloat(customEl.value);
+                    alumno.custom_cost = isNaN(parsed) ? (alumno.custom_cost || 0) : parsed;
+                }
+            } else {
+                alumno.becado = false;
+                if (alumno.costo_colegiatura == null) {
+                    alumno.custom_cost = null;
+                }
+            }
+
+            // Siempre actualizar pagos_totales al valor actual de settings
+            alumno.pagos_totales = Number(totalPayments || 55);
+
+            // Determinar monto a cobrar
+            let amount = 0;
+            if (montoInput && montoInput.value !== "") {
+                amount = parseFloat(montoInput.value) || 0;
+            } else if (alumno.costo_colegiatura != null && alumno.costo_colegiatura !== '') {
+                amount = Number(alumno.costo_colegiatura);
+            } else if (alumno.becado && alumno.custom_cost != null) {
+                amount = Number(alumno.custom_cost) || 0;
+            } else {
+                amount = Number(globalCost) || 0;
+            }
+
+            // Persistir monto_cobro
+            if (alumno.costo_colegiatura != null && alumno.costo_colegiatura !== '') {
+                alumno.monto_cobro = Number(alumno.costo_colegiatura);
+            } else if (alumno.becado && alumno.custom_cost != null) {
+                alumno.monto_cobro = Number(alumno.custom_cost);
+            } else {
+                alumno.monto_cobro = Number(globalCost);
+            }
+
+            if (alumno.pagos_realizados >= (alumno.pagos_totales || totalPayments)) {
+                if (msg) { msg.style.display = "block"; msg.className = "msg info"; msg.textContent = "Este alumno ya completó todos sus pagos."; }
+                return;
+            }
+
+            const ahora = new Date();
+            const payment = { amount: amount, timestamp: ahora.toISOString() };
+
+            alumno.pagos.push(payment);
+            alumno.pagos_realizados += 1;
+
+            await actualizarAlumno(alumno);
+
+            // Registrar movimiento en caja
+            await agregarMovimiento({
+                fecha: new Date().toISOString().split('T')[0],
+                tipo: 'pago',
+                alumno_id: alumno.id,
+                alumno_nombre: alumno.nombre,
+                monto: amount,
+                timestamp: new Date().toISOString()
+            });
+
+            if (msg) { msg.style.display = "block"; msg.className = "msg success"; msg.textContent = `Pago registrado. Pagos: ${alumno.pagos_realizados}/${alumno.pagos_totales || totalPayments} ✔`; }
+
+            // Actualizar UI
+            const displayTotal = alumno.pagos_totales || totalPayments;
+            const infoPagosEl = document.getElementById("infoPagos");
+            if (infoPagosEl) infoPagosEl.textContent = `${alumno.pagos_realizados}/${displayTotal}`;
+            const montoMostradoEl = document.getElementById("montoMostrado");
+            if (montoMostradoEl) montoMostradoEl.textContent = `$${(alumno.monto_cobro || 0).toFixed(2)}`;
+            const paymentsCountEl = document.getElementById('paymentsCount') || infoPagosEl;
+            if (paymentsCountEl) paymentsCountEl.textContent = `${alumno.pagos_realizados || 0}/${displayTotal}`;
+
+            try { printReceipt(alumno, payment); } catch (e) { console.error('Error impresión:', e); }
+
+            if (alumno.pagos_realizados >= displayTotal) {
+                setTimeout(() => {
+                    const btnPagar = document.getElementById("btnPagar");
+                    if (btnPagar) { btnPagar.disabled = true; btnPagar.style.opacity = "0.5"; }
+                }, 500);
+            }
+        } catch (e) {
+            console.error('❌ Error en realizarPago:', e);
+            const msg = document.getElementById("msg");
+            if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Error al registrar pago: " + (e.message || e); }
+        }
+    }
+
+    async function realizarPagoOtro() {
+        const msg = document.getElementById("msg");
+        if (msg) { msg.style.display = "none"; msg.textContent = ""; }
+
+        if (!alumnoActualId && alumnoActualId !== 0) {
+            if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Alumno no seleccionado."; }
+            return;
+        }
+
+        const nombre = (document.getElementById("otrosNombre") || {}).value || "";
+        const montoValor = parseFloat((document.getElementById("otrosMonto") || {}).value);
+        const fechaValor = (document.getElementById("otrosFecha") || {}).value;
+
+        if (!nombre.trim()) {
+            if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Ingrese el nombre o concepto del pago Otros."; }
+            return;
+        }
+
+        if (isNaN(montoValor) || montoValor <= 0) {
+            if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Ingrese un monto válido para el pago Otros."; }
+            return;
+        }
+
+        let pagoFecha = new Date();
+        if (fechaValor) {
+            const fechaParseada = new Date(fechaValor);
+            if (isNaN(fechaParseada.getTime())) {
+                if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Fecha inválida para el pago Otros."; }
+                return;
+            }
+            pagoFecha = fechaParseada;
+        }
+
+        const fechaTexto = pagoFecha.toISOString().split('T')[0];
+
+        if (!confirm(`¿Confirmar pago Otros de $${montoValor.toFixed(2)} (${nombre}) para este alumno?`)) {
+            return;
+        }
+
+        try {
+            await initIndexedDB();
+            const alumno = await obtenerAlumnoPorId(alumnoActualId);
+            if (!alumno) {
+                if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Alumno no encontrado en la base de datos."; }
+                return;
+            }
+
+            if (!Array.isArray(alumno.pagos)) alumno.pagos = [];
+
+            const payment = {
+                amount: Number(montoValor),
+                timestamp: pagoFecha.toISOString(),
+                tipo: 'otros',
+                concepto: nombre.trim()
+            };
+
+            alumno.pagos.push(payment);
+            await actualizarAlumno(alumno);
+
+            await agregarMovimiento({
+                fecha: fechaTexto,
+                tipo: 'otros',
+                alumno_id: alumno.id,
+                alumno_nombre: alumno.nombre,
+                monto: Number(montoValor),
+                observacion: nombre.trim(),
+                timestamp: new Date().toISOString()
+            });
+
+            if (msg) { msg.style.display = "block"; msg.className = "msg success"; msg.textContent = `Pago Otros registrado correctamente.`; }
+            const infoPagosEl = document.getElementById("infoPagos");
+            if (infoPagosEl) infoPagosEl.textContent = `${alumno.pagos_realizados || 0}/${alumno.pagos_totales || await obtenerTotalPagosDelCurso(alumno.curso)}`;
+
+            document.getElementById("otrosNombre").value = "";
+            document.getElementById("otrosMonto").value = "";
+            document.getElementById("otrosFecha").value = "";
+
+            try { printReceipt(alumno, payment); } catch (e) { console.error('Error impresión Otros:', e); }
+        } catch (e) {
+            console.error('❌ Error en realizarPagoOtro:', e);
+            if (msg) { msg.style.display = "block"; msg.className = "msg error"; msg.textContent = "Error al registrar pago Otros: " + (e.message || e); }
+        }
+    }
+
+    function printReceipt(alumno, payment) {
+        try {
+            const dt = new Date(payment.timestamp);
+            const fecha = dt.toLocaleDateString('es-ES'); // formato español
+            const hora = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            
+            // Crear PDF con dimensiones más estrechas (58mm x 120mm) para recibo térmico
+            const pdf = new jsPDF('portrait', 'mm', [58, 120]);
+            const pageWidth = 58;
+            const margin = 4;
+            let yPos = margin + 3;
+            
+            // ENCABEZADO BONITO
+            pdf.setFontSize(13);
+            pdf.setTextColor(0, 0, 0);
+            pdf.text('CEPCI', margin, yPos);
+            yPos += 5;
+
+            pdf.setFontSize(6);
+            pdf.setTextColor(120, 120, 120);
+            pdf.text('Centro Educativo Profesional', margin, yPos);
+            yPos += 4;
+
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(8);
+            pdf.text('RECIBO DE PAGO', margin, yPos);
+            yPos += 4;
+
+            // LÍNEA SEPARADORA
+            pdf.setDrawColor(0, 0, 0);
+            pdf.setLineWidth(0.4);
+            pdf.line(margin, yPos, pageWidth - margin, yPos);
+            yPos += 3;
+
+            // DATOS DEL ALUMNO (columna única)
+            pdf.setFontSize(7);
+            pdf.text('Alumno:', margin, yPos);
+            pdf.text((alumno.nombre || '-').substring(0, 28), margin + 1, yPos + 3);
+            yPos += 6;
+
+            pdf.text('Código:', margin, yPos);
+            pdf.text((alumno.codigo || '-').toString(), margin + 1, yPos + 3);
+            yPos += 6;
+
+            pdf.text('Matrícula:', margin, yPos);
+            pdf.text((alumno.matricula || '-').toString().substring(0, 18), margin + 1, yPos + 3);
+            yPos += 6;
+
+            pdf.text('Fecha:', margin, yPos);
+            pdf.text(fecha, margin + 1, yPos + 3);
+            yPos += 6;
+
+            pdf.text('Hora:', margin, yPos);
+            pdf.text(hora, margin + 1, yPos + 3);
+            yPos += 7;
+
+            // LÍNEA SEPARADORA
+            pdf.line(margin, yPos, pageWidth - margin, yPos);
+            yPos += 4;
+
+            // MONTO
+            pdf.setFontSize(9);
+            pdf.setTextColor(60, 60, 60);
+            pdf.text('MONTO PAGADO', margin, yPos);
+            yPos += 5;
+
+            pdf.setFontSize(15);
+            pdf.setTextColor(0, 128, 0);
+            const montoTexto = '$' + (payment.amount || 0).toFixed(2);
+            pdf.text(montoTexto, margin, yPos);
+            yPos += 6;
+
+            // LÍNEA SEPARADORA
+            pdf.setTextColor(0, 0, 0);
+            pdf.line(margin, yPos, pageWidth - margin, yPos);
+            yPos += 4;
+
+            // REFERENCIA + MENSAJE
+            pdf.setFontSize(6);
+            const transactId = ('000000' + new Date().getTime().toString().slice(-6)).slice(-6);
+            pdf.text('Ref: ' + transactId, margin, yPos);
+            yPos += 5;
+
+            pdf.text('¡Gracias por su pago!', margin, yPos);
+            yPos += 5;
+            pdf.setFontSize(6);
+            pdf.text('CEPCI - Educación de Calidad', margin, yPos);
+            yPos += 3;
+
+            // Pie pequeño
+            pdf.setFontSize(5);
+            pdf.setTextColor(120, 120, 120);
+            pdf.text('www.cepci.edu.mx', margin, yPos);
+            yPos += 3;
+
+            // Descargar PDF
+            const codigoAlumno = String(alumno.codigo || 'SIN_CODIGO');
+            const nombreArchivo = 'Recibo_' + codigoAlumno.replace(/[^a-zA-Z0-9]/g, '_') + '_' + new Date().getTime() + '.pdf';
+            pdf.save(nombreArchivo);
+        } catch (e) {
+            console.error('Error generando recibo PDF:', e);
+            alert('Error al generar recibo: ' + e.message);
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const buscarEl = document.getElementById("buscarInput");
+        if (buscarEl) buscarEl.addEventListener("keypress", (e) => { if (e.key === "Enter") buscarAlumno(); });
+        const btnBuscar = document.getElementById("btnBuscar");
+        if (btnBuscar) btnBuscar.addEventListener("click", buscarAlumno);
+        const btnPagar = document.getElementById("btnPagar");
+        if (btnPagar) btnPagar.addEventListener("click", realizarPago);
+        const btnPagarOtros = document.getElementById("btnPagarOtros");
+        if (btnPagarOtros) btnPagarOtros.addEventListener("click", realizarPagoOtro);
+
+        const customEl = document.getElementById('customAmount');
+        const becadoEl = document.getElementById('becadoCheck');
+        const montoPagoEl = document.getElementById('montoPago');
+        const montoMostradoEl = document.getElementById('montoMostrado');
+
+        if (customEl) {
+            customEl.addEventListener('input', () => {
+                if (becadoEl && becadoEl.checked && montoPagoEl) {
+                    const v = customEl.value || '0';
+                    montoPagoEl.value = Number(v).toFixed(2);
+                    if (montoMostradoEl) montoMostradoEl.textContent = `$${Number(v || 0).toFixed(2)}`;
+                }
+            });
+        }
+
+        if (becadoEl) {
+            becadoEl.addEventListener('change', () => {
+                if (!montoPagoEl) return;
+                if (becadoEl.checked) {
+                    const v = customEl && customEl.value ? customEl.value : '0';
+                    montoPagoEl.value = Number(v).toFixed(2);
+                    if (montoMostradoEl) montoMostradoEl.textContent = `$${Number(v || 0).toFixed(2)}`;
+                } else {
+                    montoPagoEl.value = '';
+                    if (montoMostradoEl && currentAlumno) {
+                        const costo = currentAlumno.monto_cobro || 0;
+                        montoMostradoEl.textContent = `$${Number(costo).toFixed(2)}`;
+                    }
+                }
+            });
+        }
+    });
+    </script>
+</head>
+<body>
+    <div class="header">
+        Realizar Pagos - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div class="container">
+        <h2>Registrar Pago Individual</h2>
+        <div class="small" style="text-align:center;margin-bottom:12px;">
+            Busca por código, nombre o matrícula. La cantidad se autocompleta con el monto definido para el alumno.
+        </div>
+
+        <div class="search-row">
+            <input id="buscarInput" type="text" placeholder="Ej.: 2747, Juan Pérez o A00123" />
+            <button class="btn" id="btnBuscar">Buscar</button>
+            <button class="btn" onclick="location.reload()">Limpiar</button>
+        </div>
+
+        <div id="msg" class="msg"></div>
+
+        <div id="resultado" class="result-card" aria-live="polite">
+            <div class="info-grid">
+                <div><div class="label">Alumno</div><div id="infoNombre">-</div></div>
+                <div><div class="label">Código</div><div id="infoCodigo">-</div></div>
+                <div><div class="label">Matrícula</div><div id="infoMatricula">-</div></div>
+                <div><div class="label">Pagos</div><div id="infoPagos">0/--</div></div>
+            </div>
+
+            <div style="margin-top:10px;"><div class="label">Clases que adeuda</div><div id="infoAdeudos">0</div></div>
+
+            <div><div class="label">Monto definido</div><div class="monto-display" id="montoMostrado">$0.00</div></div>
+
+            <div class="pay-row">
+                <input id="montoPago" class="pay-input" type="number" min="0" step="0.01" placeholder="Monto a pagar (opcional)" />
+                <button id="btnPagar" class="pay-btn">Registrar Pago</button>
+            </div>
+
+            <div id="otrosPagoSection" style="margin-top:18px;padding:14px;border:1px solid #8c1936;border-radius:12px;background:#fff8f0;">
+                <div style="font-weight:bold;color:#8c1936;margin-bottom:10px;">Registrar pago Otros</div>
+                <input id="otrosNombre" type="text" placeholder="Nombre o concepto del pago" />
+                <input id="otrosMonto" type="number" min="0" step="0.01" placeholder="Monto de Otros" />
+                <input id="otrosFecha" type="date" placeholder="Fecha del pago" />
+                <div class="pay-row" style="justify-content:flex-end;margin-top:0;">
+                    <button id="btnPagarOtros" class="pay-btn" style="background:#1976d2;">Registrar Otros</button>
+                </div>
+                <div style="font-size:13px;color:#444;margin-top:6px;">Este pago se guarda en el historial, pero no cuenta como pago normal del alumno.</div>
+            </div>
+
+            <div style="margin-top:10px;">
+                <label style="display:flex;gap:6px;align-items:center">
+                    <input type="checkbox" id="adeudoCheck" />
+                    Marcar como adeudo (vino a clases pero no pagó)
+                </label>
+            </div>
+
+            <input type="hidden" id="alumnoIndex" value="-1" />
+        </div>
+
+        <div id="sinResultado" class="empty" style="display:none"></div>
+
+        <div style="margin-top:10px;">
+            <label style="font-weight:bold;color:#8c1936;">Costo por cuota (global):</label>
+            <div id="globalCosto" style="font-weight:bold;color:#2e7d32">$0.00</div>
+
+            <label style="font-weight:bold;color:#8c1936;margin-top:8px;">Opciones de cobro:</label>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
+                <label style="display:flex;gap:6px;align-items:center">
+                    <input type="checkbox" id="becadoCheck" />
+                    Marcar como becado
+                </label>
+                <input type="number" id="customAmount" min="0" step="0.01" style="width:140px;margin-bottom:0" placeholder="Cantidad personalizada" />
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Inventario - CEPCI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f7f7f7; }
+        .header { background: #8c1936; color: #fff; padding: 14px; display: flex; justify-content: space-between; align-items: center; }
+        .back { background: #CFB53B; color: #8c1936; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 12px; }
+        .section-title { font-size: 20px; font-weight: bold; color: #8c1936; margin-bottom: 15px; border-bottom: 2px solid #CFB53B; padding-bottom: 10px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; color: #333; }
+        input, select, textarea { width: 100%; padding: 8px; border: 2px solid #8c1936; border-radius: 8px; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 70px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .btn { padding: 10px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #8c1936; color: #fff; }
+        .btn-primary:hover { background: #6a1228; }
+        .btn-secondary { background: #CFB53B; color: #8c1936; }
+        .btn-secondary:hover { background: #b39934; }
+        .btn-danger { background: #dc3545; color: #fff; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-info { background: #17a2b8; color: #fff; }
+        .btn-info:hover { background: #138496; }
+        .btn-actions { display: flex; gap: 8px; margin-top: 12px; }
+        .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; margin-top: 20px; }
+        .producto-card { border: 1px solid #ddd; padding: 15px; border-radius: 10px; background: #fafafa; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .producto-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
+        .producto-nombre { font-size: 16px; font-weight: bold; color: #8c1936; }
+        .producto-categoria { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-top: 4px; }
+        .cat-computacion { background: #e3f2fd; color: #1565c0; }
+        .cat-belleza { background: #f3e5f5; color: #6a1b9a; }
+        .producto-info { font-size: 13px; color: #666; margin: 8px 0; }
+        .producto-precio { font-size: 18px; font-weight: bold; color: #CFB53B; margin: 10px 0; }
+        .producto-stock { padding: 8px; background: #fff; border: 1px solid #ddd; border-radius: 6px; margin: 10px 0; }
+        .stock-input { width: 70px; }
+        .toast { position: fixed; right: 20px; bottom: 20px; background: #323232; color: #fff; padding: 12px 16px; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.2); opacity: 0; transform: translateY(10px); transition: opacity 0.25s, transform 0.25s; z-index: 1000; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+        .empty { text-align: center; padding: 40px; color: #999; font-size: 16px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: #fff; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal-header { font-size: 20px; font-weight: bold; color: #8c1936; margin-bottom: 15px; }
+        .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 15px; }
+    </style>
+    <script src="js/db.js"></script>
+    <script>
+        if (sessionStorage.getItem('logged') !== 'true') location.href = 'index.html';
+        
+        let productos = [];
+        let productoEnEdicion = null;
+
+        async function initPage() {
+            await initIndexedDB();
+            await cargarProductosList();
+        }
+
+        async function cargarProductosList() {
+            try {
+                productos = await cargarProductos();
+                renderProductos();
+            } catch (e) {
+                console.error('Error cargando productos:', e);
+                mostrarToast('Error al cargar productos');
+            }
+        }
+
+        function renderProductos() {
+            const cont = document.getElementById('productosContainer');
+            cont.innerHTML = '';
+            if (!productos || productos.length === 0) {
+                cont.innerHTML = '<div class="empty">No hay productos registrados. Agrega uno nuevo para comenzar.</div>';
+                return;
+            }
+            for (const p of productos) {
+                const card = document.createElement('div');
+                card.className = 'producto-card';
+                const catClass = p.categoria === 'Belleza' ? 'cat-belleza' : 'cat-computacion';
+                card.innerHTML = `
+                    <div class="producto-header">
+                        <div class="producto-nombre">${p.nombre || 'Sin nombre'}</div>
+                        <div class="producto-categoria ${catClass}">${p.categoria || 'N/A'}</div>
+                    </div>
+                    <div class="producto-info"><strong>Descripción:</strong> ${p.descripcion || 'N/A'}</div>
+                    <div class="producto-precio">Q ${parseFloat(p.precio || 0).toFixed(2)}</div>
+                    <div class="producto-stock">
+                        <strong>Stock:</strong>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+                            <input type="number" class="stock-input" value="${p.stock || 0}" min="0" data-pid="${p.id}" onchange="actualizarStock(this)" />
+                            <span style="font-size: 13px; color: #666;">unidades</span>
+                        </div>
+                    </div>
+                    <div class="btn-actions">
+                        <button class="btn btn-secondary" onclick="abrirEditar(${p.id})">✏️ Editar</button>
+                        <button class="btn btn-danger" onclick="confirmarEliminar(${p.id})">🗑️ Eliminar</button>
+                    </div>
+                `;
+                cont.appendChild(card);
+            }
+        }
+
+        function abrirAgregar() {
+            productoEnEdicion = null;
+            document.getElementById('formTitle').textContent = 'Agregar Nuevo Producto';
+            limpiarFormulario();
+            abrirModal();
+        }
+
+        async function abrirEditar(id) {
+            try {
+                productoEnEdicion = await obtenerProductoPorId(id);
+                if (!productoEnEdicion) {
+                    mostrarToast('Producto no encontrado');
+                    return;
+                }
+                document.getElementById('formTitle').textContent = 'Editar Producto';
+                document.getElementById('formNombre').value = productoEnEdicion.nombre || '';
+                document.getElementById('formDescripcion').value = productoEnEdicion.descripcion || '';
+                document.getElementById('formPrecio').value = productoEnEdicion.precio || '';
+                document.getElementById('formCategoria').value = productoEnEdicion.categoria || 'Computacion';
+                document.getElementById('formStock').value = productoEnEdicion.stock || 0;
+                abrirModal();
+            } catch (e) {
+                console.error('Error abriendo editor:', e);
+                mostrarToast('Error al abrir editor');
+            }
+        }
+
+        function abrirModal() {
+            document.getElementById('productoModal').classList.add('show');
+        }
+
+        function cerrarModal() {
+            document.getElementById('productoModal').classList.remove('show');
+            limpiarFormulario();
+            productoEnEdicion = null;
+        }
+
+        function limpiarFormulario() {
+            document.getElementById('formNombre').value = '';
+            document.getElementById('formDescripcion').value = '';
+            document.getElementById('formPrecio').value = '';
+            document.getElementById('formCategoria').value = 'Computacion';
+            document.getElementById('formStock').value = '0';
+        }
+
+        async function guardarProductoDelFormulario() {
+            const nombre = document.getElementById('formNombre').value.trim();
+            const descripcion = document.getElementById('formDescripcion').value.trim();
+            const precio = parseFloat(document.getElementById('formPrecio').value) || 0;
+            const categoria = document.getElementById('formCategoria').value;
+            const stock = parseInt(document.getElementById('formStock').value) || 0;
+
+            if (!nombre) {
+                mostrarToast('El nombre del producto es requerido');
+                return;
+            }
+            if (precio < 0) {
+                mostrarToast('El precio no puede ser negativo');
+                return;
+            }
+
+            try {
+                if (productoEnEdicion) {
+                    // Actualizar
+                    await actualizarProducto({
+                        id: productoEnEdicion.id,
+                        nombre,
+                        descripcion,
+                        precio,
+                        categoria,
+                        stock
+                    });
+                    mostrarToast('✓ Producto actualizado correctamente');
+                } else {
+                    // Crear - acceder a la función global de DB (no a sí misma)
+                    const dbGuardarProducto = window.guardarProducto;
+                    await dbGuardarProducto({
+                        nombre,
+                        descripcion,
+                        precio,
+                        categoria,
+                        stock
+                    });
+                    mostrarToast('✓ Producto agregado correctamente');
+                }
+                cerrarModal();
+                await cargarProductosList();
+            } catch (e) {
+                console.error('Error guardando producto:', e);
+                mostrarToast('Error al guardar producto');
+            }
+        }
+
+        async function actualizarStock(input) {
+            const pid = parseInt(input.dataset.pid);
+            const nuevoStock = parseInt(input.value) || 0;
+            try {
+                const p = await obtenerProductoPorId(pid);
+                if (p) {
+                    await actualizarProducto(Object.assign({}, p, { stock: nuevoStock }));
+                    mostrarToast('Stock actualizado');
+                }
+            } catch (e) {
+                console.error('Error actualizando stock:', e);
+                mostrarToast('Error al actualizar stock');
+                await cargarProductosList();
+            }
+        }
+
+        async function confirmarEliminar(id) {
+            if (confirm('¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.')) {
+                try {
+                    await eliminarProducto(id);
+                    mostrarToast('✓ Producto eliminado correctamente');
+                    await cargarProductosList();
+                } catch (e) {
+                    console.error('Error eliminando:', e);
+                    mostrarToast('Error al eliminar producto');
+                }
+            }
+        }
+
+        function descargarCSV() {
+            if (!productos || productos.length === 0) {
+                mostrarToast('No hay productos para descargar');
+                return;
+            }
+            const headers = ['ID', 'Nombre', 'Descripción', 'Precio', 'Categoría', 'Stock', 'Fecha Registrado'];
+            const rows = productos.map(p => [
+                p.id,
+                `"${(p.nombre || '').replace(/"/g, '""')}"`,
+                `"${(p.descripcion || '').replace(/"/g, '""')}"`,
+                p.precio || 0,
+                p.categoria || 'N/A',
+                p.stock || 0,
+                p.timestamp ? new Date(p.timestamp).toLocaleDateString('es-ES') : ''
+            ]);
+            let csv = headers.join(',') + '\n';
+            csv += rows.map(r => r.join(',')).join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `inventario_${new Date().toLocaleDateString('es-ES')}.csv`;
+            link.click();
+            mostrarToast('✓ Inventario descargado como CSV');
+        }
+
+        function mostrarToast(text, timeout = 3000) {
+            let t = document.getElementById('globalToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'globalToast';
+                t.className = 'toast';
+                document.body.appendChild(t);
+            }
+            t.textContent = text;
+            t.classList.add('show');
+            clearTimeout(t._hideTimer);
+            t._hideTimer = setTimeout(() => t.classList.remove('show'), timeout);
+        }
+
+        document.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</head>
+<body>
+    <div class="header">
+        Inventario de Productos
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="back" onclick="location.href='dashboard.html'">← Regresar</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-title">Gestión de Inventario</div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="abrirAgregar()">➕ Agregar Producto</button>
+            <button class="btn btn-secondary" onclick="descargarCSV()">📥 Descargar Inventario (CSV)</button>
+        </div>
+
+        <div id="productosContainer" class="productos-grid"></div>
+    </div>
+
+    <div id="productoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="formTitle">Agregar Nuevo Producto</div>
+
+            <div class="form-group">
+                <label for="formNombre">Nombre del Producto *</label>
+                <input type="text" id="formNombre" placeholder="Ej: Laptop Dell XPS 13" />
+            </div>
+
+            <div class="form-group">
+                <label for="formDescripcion">Descripción</label>
+                <textarea id="formDescripcion" placeholder="Descripción detallada del producto..."></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="formPrecio">Precio (Q) *</label>
+                    <input type="number" id="formPrecio" placeholder="0.00" min="0" step="0.01" />
+                </div>
+                <div class="form-group">
+                    <label for="formCategoria">Categoría *</label>
+                    <select id="formCategoria">
+                        <option value="Computacion">Computación</option>
+                        <option value="Belleza">Belleza</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="formStock">Stock Inicial</label>
+                <input type="number" id="formStock" placeholder="0" min="0" value="0" />
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarProductoDelFormulario()">Guardar Producto</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="globalToast" class="toast"></div>
+</body>
+</html>

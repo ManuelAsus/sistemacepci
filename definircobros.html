@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Definir Cobros - CEPCI</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+        }
+
+        .header {
+            background: #8c1936;
+            padding: 15px;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back {
+            background: #CFB53B;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #8c1936;
+            font-weight: bold;
+        }
+
+        .back:hover {
+            background: white;
+        }
+
+        .container {
+            margin: 30px auto;
+            width: 90%;
+            max-width: 600px;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 14px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #001f54;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #8c1936;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #8c1936;
+            border-radius: 8px;
+            font-size: 15px;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+        }
+
+        input:focus {
+            border-color: #CFB53B;
+            box-shadow: 0 0 6px #CFB53B;
+            outline: none;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            background: #8c1936;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            width: auto;
+        }
+
+        .btn:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .msg {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .msg.error {
+            color: #d32f2f;
+            background: #ffebee;
+        }
+
+        .msg.success {
+            color: #388e3c;
+            background: #e8f5e9;
+        }
+
+        .msg.info {
+            color: #1976d2;
+            background: #e3f2fd;
+        }
+
+        .small {
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 14px;
+        }
+
+        /* Search row */
+        .search-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .search-row input[type="text"] {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid rgba(140,25,54,0.12);
+            border-radius: 8px;
+            font-size: 15px;
+            background: white;
+            margin-bottom: 0;
+        }
+
+        .search-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* alumno info card */
+        .alumno-card {
+            display: none;
+            grid-template-columns: 1fr 260px;
+            gap: 14px;
+            align-items: start;
+            border-radius: 8px;
+            padding: 14px;
+            background: #fcfdff;
+            border: 1px solid rgba(140,25,54,0.06);
+            margin-top: 20px;
+        }
+
+        .alumno-card.visible {
+            display: grid;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px 14px;
+            margin-bottom: 8px;
+        }
+
+        .info-item {
+            font-size: 14px;
+            color: #0b2540;
+        }
+
+        .info-label {
+            display: block;
+            font-weight: 700;
+            color: #8c1936;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        .monto-block {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .monto-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(140,25,54,0.12);
+            border-radius: 8px;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .primary-btn {
+            background: #8c1936;
+            color: white;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            flex: 1;
+        }
+
+        .primary-btn:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .info-note {
+            font-size: 12px;
+            color: #555;
+            margin-top: 6px;
+        }
+
+        @media(max-width:820px) {
+            .alumno-card {
+                grid-template-columns: 1fr;
+            }
+
+            .monto-block {
+                flex-direction: column;
+            }
+        }
+    </style>
+
+    <script src="js/db.js"></script>
+    <script>
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        let alumnoActualId = null;
+
+        // Función para normalizar texto (elimina acentos)
+        function normalizarTexto(texto) {
+            if (!texto) return "";
+            return texto.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        async function buscarAlumno() {
+            const busqueda = document.getElementById("busqueda").value.trim();
+            const alumnoCard = document.getElementById("alumnoCard");
+            const msg = document.getElementById("msg");
+
+            if (!busqueda) {
+                mostrarMensaje(msg, "error", "Ingrese un código o nombre para buscar.");
+                alumnoCard.classList.remove("visible");
+                return;
+            }
+
+            mostrarMensaje(msg, "info", "Buscando...");
+
+            try {
+                // Esperar a que IndexedDB esté completamente inicializado
+                await initIndexedDB();
+
+                console.log("IndexedDB inicializado, cargando alumnos...");
+                const alumnos = await cargarAlumnos();
+                console.log("Alumnos cargados:", alumnos);
+
+                if (!alumnos || alumnos.length === 0) {
+                    mostrarMensaje(msg, "error", "No hay alumnos registrados en el sistema.");
+                    alumnoCard.classList.remove("visible");
+                    return;
+                }
+
+                const busquedaNormalizada = normalizarTexto(busqueda);
+                console.log("Buscando por:", busquedaNormalizada);
+
+                const alumno = alumnos.find(a => {
+                    const codigoNormalizado = normalizarTexto(a.codigo);
+                    const nombreNormalizado = normalizarTexto(a.nombre);
+                    const matriculaNormalizada = normalizarTexto(a.matricula);
+                    
+                    const coincide = codigoNormalizado.includes(busquedaNormalizada) || 
+                           nombreNormalizado.includes(busquedaNormalizada) ||
+                           matriculaNormalizada.includes(busquedaNormalizada);
+
+                    if (coincide) {
+                        console.log("Alumno encontrado:", a);
+                    }
+                    return coincide;
+                });
+
+                if (!alumno) {
+                    mostrarMensaje(msg, "error", "Alumno no encontrado. Verifica el código, nombre o matrícula.");
+                    alumnoCard.classList.remove("visible");
+                    return;
+                }
+
+                // Mostrar información del alumno
+                document.getElementById("infoNombre").textContent = alumno.nombre || "-";
+                document.getElementById("infoCodigo").textContent = alumno.codigo || "-";
+                document.getElementById("infoMatricula").textContent = alumno.matricula || "-";
+                document.getElementById("infoPagos").textContent = `${alumno.pagos_realizados || 0}/${alumno.pagos_totales || 55}`;
+
+                document.getElementById("nuevoMonto").value = alumno.monto_cobro || 0;
+                alumnoActualId = alumno.id;
+
+                alumnoCard.classList.add("visible");
+                mostrarMensaje(msg, "", "");
+
+            } catch (error) {
+                console.error("Error al buscar alumno:", error);
+                mostrarMensaje(msg, "error", "Error al buscar: " + error.message);
+            }
+        }
+
+        async function guardarMonto() {
+            const nuevoMonto = parseFloat(document.getElementById("nuevoMonto").value);
+            const msg = document.getElementById("msg");
+
+            if (isNaN(nuevoMonto) || nuevoMonto < 0) {
+                mostrarMensaje(msg, "error", "Ingrese un monto válido (número positivo).");
+                return;
+            }
+
+            if (alumnoActualId === null) {
+                mostrarMensaje(msg, "error", "Debe buscar un alumno primero.");
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                const alumno = await obtenerAlumnoPorId(alumnoActualId);
+                
+                if (!alumno) {
+                    mostrarMensaje(msg, "error", "Error: alumno no encontrado en la base de datos.");
+                    return;
+                }
+
+                alumno.monto_cobro = nuevoMonto;
+                await actualizarAlumno(alumno);
+
+                mostrarMensaje(msg, "success", "✔ Monto actualizado correctamente");
+
+                setTimeout(() => {
+                    document.getElementById("busqueda").value = "";
+                    document.getElementById("alumnoCard").classList.remove("visible");
+                    mostrarMensaje(msg, "", "");
+                    alumnoActualId = null;
+                }, 2000);
+
+            } catch (error) {
+                console.error("Error al guardar monto:", error);
+                mostrarMensaje(msg, "error", "Error al guardar: " + error.message);
+            }
+        }
+
+        function limpiar() {
+            document.getElementById("busqueda").value = "";
+            document.getElementById("alumnoCard").classList.remove("visible");
+            document.getElementById("msg").textContent = "";
+            alumnoActualId = null;
+        }
+
+        function mostrarMensaje(elemento, clase, texto) {
+            elemento.textContent = texto;
+            elemento.className = "msg";
+            if (clase) {
+                elemento.classList.add(clase);
+            }
+        }
+
+        // Permitir buscar con Enter
+        document.addEventListener("DOMContentLoaded", () => {
+            const inputBusqueda = document.getElementById("busqueda");
+            if (inputBusqueda) {
+                inputBusqueda.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter") {
+                        buscarAlumno();
+                    }
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <div class="header">
+        Definir Cobros - CEPCI
+        <div class="back" onclick="location.href='dashboard.html'">Regresar</div>
+    </div>
+
+    <div class="container">
+        <h2>Definir Monto de Cobros</h2>
+
+        <div class="small">Busca por código, nombre o matrícula. El monto se aplicará en pagos.</div>
+
+        <label for="busqueda">Buscar Alumno</label>
+        <div class="search-row">
+            <input id="busqueda" type="text" placeholder="Ej.: 2747, Juan Pérez o A00123" />
+            <div class="search-actions">
+                <button class="btn" onclick="buscarAlumno()">Buscar</button>
+                <button class="btn" onclick="limpiar()">Limpiar</button>
+            </div>
+        </div>
+
+        <div id="msg" class="msg"></div>
+
+        <div id="alumnoCard" class="alumno-card">
+            <div>
+                <div class="info-grid">
+                    <div>
+                        <span class="info-label">Nombre</span>
+                        <div class="info-item" id="infoNombre"></div>
+                    </div>
+                    <div>
+                        <span class="info-label">Código</span>
+                        <div class="info-item" id="infoCodigo"></div>
+                    </div>
+                    <div>
+                        <span class="info-label">Matrícula</span>
+                        <div class="info-item" id="infoMatricula"></div>
+                    </div>
+                    <div>
+                        <span class="info-label">Pagos</span>
+                        <div class="info-item" id="infoPagos"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="monto-block">
+                <label for="nuevoMonto" class="info-label">Monto a Cobrar (MXN)</label>
+                <input id="nuevoMonto" class="monto-input" type="number" min="0" step="0.01" placeholder="0.00" />
+                <div class="actions">
+                    <button class="primary-btn" onclick="guardarMonto()">Guardar</button>
+                    <button class="primary-btn" style="background: #ccc; color: #333;" onclick="limpiar()">Cancelar</button>
+                </div>
+                <div class="info-note">El monto se guarda inmediatamente.</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

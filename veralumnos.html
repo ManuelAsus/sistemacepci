@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lista de Alumnos - CEPCI</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f3f3f3; }
+        .header { background: #8c1936; padding: 15px; color: white; font-size: 22px; font-weight: bold; display:flex; justify-content:space-between; align-items:center; }
+        .btn { background: #CFB53B; padding: 10px 14px; border-radius: 8px; cursor: pointer; color: #8c1936; font-weight: bold; text-decoration: none; }
+        .btn:hover { background: white; color: #8c1936; }
+        .container { margin: 25px auto; width: 95%; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 0 14px rgba(0,0,0,0.15); }
+        h2 { text-align: center; color: #001f54; margin-bottom: 20px; font-size: 26px; }
+        .alumno-card { background: #f9f9f9; border: 2px solid #8c1936; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+        .alumno-card.baja { opacity: 0.7; background: #f0f0f0; }
+        .alumno-card h3 { color: #8c1936; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #CFB53B; padding-bottom: 10px; display:flex; justify-content:space-between; align-items:center;}
+        .estado-badge { font-size: 12px; padding: 5px 10px; border-radius: 20px; font-weight: bold; }
+        .estado-activo { background: #4caf50; color: white; }
+        .estado-baja { background: #ff9800; color: white; }
+        .alumno-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 15px; margin-bottom: 20px; }
+        .alumno-info { font-size: 14px; color: #001f54; }
+        .alumno-label { font-weight: bold; color: #8c1936; }
+        .btn-group { display:flex; gap:10px; flex-wrap:wrap; }
+        .btn-accion { flex:1; min-width:100px; padding:10px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:13px; transition:.3s; }
+        .btn-edit { background:#CFB53B; color:#8c1936; }
+        .btn-delete { background:#d32f2f; color:white; }
+        .btn-baja { background:#ff9800; color:white; }
+        .btn-reactivar { background:#4caf50; color:white; }
+        .empty { text-align:center; color:#8c1936; font-size:18px; padding:40px; }
+        .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.6); align-items:center; justify-content:center; }
+        .modal.show { display:flex; }
+        .modal-content { background:white; padding:25px; border-radius:15px; width:90%; max-width:900px; max-height:90vh; overflow-y:auto; box-shadow:0 0 20px rgba(0,0,0,0.3); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:2px solid #8c1936; padding-bottom:15px; }
+        .close { font-size:28px; font-weight:bold; color:#8c1936; cursor:pointer; }
+        label { font-weight:bold; color:#8c1936; display:block; margin-top:15px; margin-bottom:5px; }
+        input, select { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; font-size:14px; box-sizing:border-box; margin-bottom:10px; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+        .form-row > div:empty { display: none; }
+        .modal-btn { width:100%; padding:12px; background:#8c1936; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; margin-top:15px; }
+        .modal-btn:hover { background:#CFB53B; color:#8c1936; }
+        .msg { margin-top:10px; text-align:center; font-weight:bold; padding:10px; border-radius:6px; }
+        .msg.success { color:#388e3c; background:#e8f5e9; }
+        .msg.error { color:#d32f2f; background:#ffebee; }
+        .vista-toggle { text-align:center; margin-bottom:20px; }
+        .vista-toggle button { padding:10px 20px; margin:0 5px; background:#8c1936; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
+        .vista-toggle button.active { background:#CFB53B; color:#8c1936; }
+        .search-section { background:#f0f0f0; padding:15px; border-radius:10px; margin-bottom:20px; }
+        .search-section label { font-weight:bold; color:#8c1936; margin-bottom:8px; display:block; }
+        .search-section input { width:100%; padding:10px; border:2px solid #8c1936; border-radius:8px; font-size:15px; box-sizing:border-box; }
+        #paymentsModal .modal-content { background:#f9f9f9; margin:10% auto; padding:20px; border-radius:10px; width:90%; max-width:600px; box-shadow:0 0 15px rgba(0,0,0,0.3); }
+        #paymentsList { max-height:300px; overflow-y:auto; margin-top:10px; margin-bottom:10px; }
+        #paymentsList div { padding:8px 0; border-bottom:1px solid #eee; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        Lista de Alumnos Registrados
+        <a class="btn" href="dashboard.html">Regresar</a>
+    </div>
+
+    <div class="container">
+        <h2>Alumnos Registrados</h2>
+
+        <div class="vista-toggle">
+            <button class="active" onclick="cambiarVista('todos')">Ver Todos</button>
+            <button onclick="cambiarVista('activos')">Solo Activos</button>
+            <button onclick="cambiarVista('baja')">Con Baja Temporal</button>
+        </div>
+
+        <div class="search-section">
+            <label>Buscar / Filtrar (nombre, código, matrícula):</label>
+            <input type="text" id="filtroAlumnos" placeholder="Escribe y presiona Buscar o Enter" />
+            <div style="margin-top:10px; display:flex; gap:10px;">
+                <button class="btn" onclick="filtrarAlumnos()">Buscar</button>
+                <button class="btn" onclick="document.getElementById('filtroAlumnos').value=''; mostrarAlumnos();">Limpiar</button>
+            </div>
+        </div>
+
+        <div id="alumnosContainer"></div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Alumno</h3>
+                <span class="close" onclick="cerrarModal()">&times;</span>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Matrícula:</label>
+                    <input type="text" id="editMatricula" placeholder="Ejemplo: A00123">
+                </div>
+                <div>
+                    <label>Nombre Completo:</label>
+                    <input type="text" id="editNombre" placeholder="Nombre del alumno">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Asesor Responsable:</label>
+                    <select id="editAsesorSelect" required>
+                        <option value="">Seleccione un asesor…</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Curso:</label>
+                    <select id="editCurso" required>
+                        <option value="">Seleccione curso…</option>
+                        <option value="Computacion">Computación</option>
+                        <option value="Belleza">Belleza</option>
+                        <option value="Ingles">Inglés</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Horario:</label>
+                    <select id="editHorario" required>
+                        <option value="">Seleccione un horario…</option>
+                    </select>
+                </div>
+                <div></div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Fecha de Nacimiento:</label>
+                    <input type="date" id="editFechaNacimiento" required>
+                </div>
+                <div>
+                    <label>Edad (calculada automáticamente):</label>
+                    <input type="number" id="editEdad" readonly>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Sexo:</label>
+                    <select id="editSexo">
+                        <option value="">Seleccione…</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Femenino">Femenino</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div></div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Fecha de Inscripción:</label>
+                    <input type="date" id="editFecha">
+                </div>
+                <div>
+                    <label>Número de Teléfono:</label>
+                    <input type="text" id="editTelefono" placeholder="Ejemplo: 999 999 9999">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Nombre del Tutor:</label>
+                    <input type="text" id="editTutor" placeholder="Ejemplo: Juan Pérez">
+                </div>
+                <div>
+                    <label>Dirección:</label>
+                    <input type="text" id="editDireccion" placeholder="Dirección completa">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Población:</label>
+                    <input type="text" id="editPoblacion" placeholder="Población">
+                </div>
+                <div>
+                    <label>Colonia, Calle, Referencia:</label>
+                    <input type="text" id="editColoniaCalleReferencia" placeholder="Colonia / Calle / Referencia">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Asignar costo de colegiatura:</label>
+                    <input type="number" id="editCostoColegiatura" min="0" step="0.01" placeholder="Costo por cuota">
+                </div>
+                <div>
+                    <label>Código:</label>
+                    <input type="text" id="editCodigo" placeholder="Ejemplo: 2747">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Monto a Cobrar:</label>
+                    <input type="number" id="editMontosCobro" placeholder="Monto a cobrar" min="0" step="0.01">
+                </div>
+                <div></div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>Adeudos:</label>
+                    <input type="number" id="editAdeudos" min="0" value="0">
+                </div>
+                <div>
+                    <label>Fecha de Primer Pago:</label>
+                    <input type="date" id="editFechaPrimerPago" required>
+                </div>
+            </div>
+
+            <button class="modal-btn" onclick="guardarCambios()">Guardar Cambios</button>
+
+            <div class="msg" id="msgEdit"></div>
+        </div>
+    </div>
+
+    <!-- Payments Modal -->
+    <div id="paymentsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="paymentsModalTitle">Pagos</h3>
+                <span class="close" onclick="cerrarPaymentsModal()">&times;</span>
+            </div>
+            <div id="paymentsList"></div>
+            <div style="margin-top:12px;">
+                <button class="modal-btn" onclick="cerrarPaymentsModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script>
+        // Asegurar sesión
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        let alumnoEditandoId = null;
+        let vistaActual = "todos"; // todos, activos, baja
+
+        function getEditInput(id) {
+            const el = document.getElementById(id);
+            if (!el) {
+                console.warn(`Elemento de edición no encontrado: ${id}`);
+                return null;
+            }
+            return el;
+        }
+
+        function setEditValue(id, value) {
+            const el = getEditInput(id);
+            if (el) el.value = value;
+        }
+
+        // Normaliza texto (quita acentos y pasa a minúsculas)
+        function normalizarTexto(texto = '') {
+            if (!texto) return '';
+            return texto.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        // Calcula la edad basada en la fecha de nacimiento
+        function calcularEdad(fechaNacimiento) {
+            if (!fechaNacimiento) return '';
+            const hoy = new Date();
+            const nacimiento = new Date(fechaNacimiento);
+            let edad = hoy.getFullYear() - nacimiento.getFullYear();
+            const mes = hoy.getMonth() - nacimiento.getMonth();
+            if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+                edad--;
+            }
+            return edad;
+        }
+
+        async function mostrarAlumnos() {
+            try {
+                await initIndexedDB();
+                const alumnos = await cargarAlumnos();
+                const container = document.getElementById("alumnosContainer");
+
+                if (!alumnos || alumnos.length === 0) {
+                    container.innerHTML = '<div class="empty">No hay alumnos registrados.</div>';
+                    return;
+                }
+
+                let alumnosFiltrados = alumnos;
+                if (vistaActual === "activos") alumnosFiltrados = alumnos.filter(a => !a.baja_temporal);
+                else if (vistaActual === "baja") alumnosFiltrados = alumnos.filter(a => a.baja_temporal);
+
+                if (!alumnosFiltrados || alumnosFiltrados.length === 0) {
+                    container.innerHTML = '<div class="empty">No hay alumnos en esta categoría.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                alumnosFiltrados.forEach(alumno => {
+                    // asegurar campos
+                    if (alumno.pagos_realizados === undefined) alumno.pagos_realizados = 0;
+                    if (alumno.pagos_totales === undefined) alumno.pagos_totales = 55;
+                    if (!Array.isArray(alumno.pagos)) alumno.pagos = [];
+                    if (alumno.monto_cobro === undefined) alumno.monto_cobro = 0;
+                    if (alumno.adeudos === undefined) alumno.adeudos = 0;
+
+                    const estadoClass = alumno.baja_temporal ? 'baja' : '';
+                    const estadoBadge = alumno.baja_temporal
+                        ? '<span class="estado-badge estado-baja">Baja Temporal</span>'
+                        : '<span class="estado-badge estado-activo">Activo</span>';
+
+                    const card = document.createElement('div');
+                    card.className = `alumno-card ${estadoClass}`;
+                    card.innerHTML = `
+                        <h3>${escapeHtml(alumno.nombre)} ${estadoBadge}</h3>
+                        <div class="alumno-info-grid">
+                            <div class="alumno-info"><span class="alumno-label">Código:</span> ${escapeHtml(alumno.codigo || '-')}</div>
+                            <div class="alumno-info"><span class="alumno-label">Matrícula:</span> ${escapeHtml(alumno.matricula || '-')}</div>
+                            <div class="alumno-info"><span class="alumno-label">Población:</span> ${escapeHtml(alumno.poblacion || '-')}</div>
+                            <div class="alumno-info"><span class="alumno-label">Referencia:</span> ${escapeHtml(alumno.colonia_calle_referencia || '-')}</div>
+                            <div class="alumno-info"><span class="alumno-label">Horario:</span> ${escapeHtml(alumno.horario || '-')}</div>
+                            <div class="alumno-info"><span class="alumno-label">Curso:</span> <span id="curso_${alumno.id}">${escapeHtml(alumno.curso || '-')}</span></div>
+                            <div class="alumno-info"><span class="alumno-label">Costo por cuota:</span> <span id="costo_${alumno.id}">-</span></div>
+                            <div class="alumno-info"><span class="alumno-label">Pagos:</span> <span id="pagos_${alumno.id}">${escapeHtml(String(alumno.pagos_realizados || 0))}/${escapeHtml(String(alumno.pagos_totales || '55'))}</span></div>
+                            <div class="alumno-info"><span class="alumno-label">Adeudos:</span> ${escapeHtml(String(alumno.adeudos || 0))}</div>
+                            <div class="alumno-info"><span class="alumno-label">Fecha Primer Pago:</span> ${escapeHtml(alumno.fecha_primer_pago || '-')}</div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn-accion btn-edit" onclick="abrirEditar(${alumno.id})">Editar</button>
+                            <button class="btn-accion" onclick="verPagos(${alumno.id})">Ver Pagos</button>
+                            ${alumno.baja_temporal ? 
+                                `<button class="btn-accion btn-reactivar" onclick="reactivarAlumno(${alumno.id})">Reactivar</button>` :
+                                `<button class="btn-accion btn-baja" onclick="darDeBaja(${alumno.id})">Baja Temporal</button>`
+                            }
+                            <button class="btn-accion btn-delete" onclick="eliminarAlumnoConfirm(${alumno.id})">Eliminar</button>
+                            <button class="btn-accion" onclick="moverAlumno(${alumno.id})" style="background:#1976d2;color:white;">Cambiar Grupo</button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                // Rellenar nombre de asesor en las tarjetas
+                for (const alumno of alumnosFiltrados) {
+                    const span = document.getElementById(`asesor_${alumno.id}`);
+                    if (!span) continue;
+                    if (alumno.asesor_id) {
+                        try {
+                            const a = await obtenerAsesorPorId(alumno.asesor_id);
+                            span.textContent = a ? `${a.nombre} (ID: ${a.id})` : 'No encontrado';
+                        } catch (e) {
+                            console.warn('Error al obtener asesor', e);
+                            span.textContent = 'Error';
+                        }
+                    } else {
+                        span.textContent = 'No asignado';
+                    }
+                }
+
+                // Rellenar nombre de grupo en las tarjetas
+                try {
+                    const grupos = await cargarGrupos();
+                    const mapGrupo = {};
+                    grupos.forEach(g => {
+                        (g.alumno_ids || []).forEach(aid => {
+                            mapGrupo[aid] = g;
+                        });
+                    });
+                    for (const alumno of alumnosFiltrados) {
+                        const el = document.getElementById(`grupo_${alumno.id}`);
+                        if (el) {
+                            const g = mapGrupo[alumno.id];
+                            el.textContent = g ? `${g.nombre} (ID:${g.id})` : '—';
+                        }
+                    }
+                } catch (e) {
+                    console.warn('No se pudieron cargar grupos para mostrar', e);
+                }
+
+                // Rellenar curso, costo y pagos totales por alumno usando settings y bandera 'becado'
+                try {
+                    const compCost = await getSetting('computacion_cost') || 0;
+                    const compPayments = await getSetting('computacion_payments') || 55;
+                    const belleCost = await getSetting('belleza_cost') || 0;
+                    const bellePayments = await getSetting('belleza_payments') || 55;
+                    const inglesCost = await getSetting('ingles_cost') || 0;
+                    const inglesPayments = await getSetting('ingles_payments') || 55;
+
+                    for (const alumno of alumnosFiltrados) {
+                        const cursoEl = document.getElementById(`curso_${alumno.id}`);
+                        const costoEl = document.getElementById(`costo_${alumno.id}`);
+                        const pagosEl = document.getElementById(`pagos_${alumno.id}`);
+                        if (cursoEl) cursoEl.textContent = alumno.curso || '-';
+                        let totalPagos = 55;
+                        let costoPorCuota = 0;
+                        if ((alumno.curso || '').toLowerCase().includes('comput')) {
+                            totalPagos = compPayments;
+                            costoPorCuota = compCost;
+                        } else if ((alumno.curso || '').toLowerCase().includes('belle')) {
+                            totalPagos = bellePayments;
+                            costoPorCuota = belleCost;
+                        } else if ((alumno.curso || '').toLowerCase().includes('ingl')) {
+                            totalPagos = inglesPayments;
+                            costoPorCuota = inglesCost;
+                        }
+                        if (alumno.costo_colegiatura != null && alumno.costo_colegiatura !== '') {
+                            costoPorCuota = Number(alumno.costo_colegiatura);
+                        } else if (alumno.becado && alumno.custom_cost != null) {
+                            costoPorCuota = Number(alumno.custom_cost);
+                        }
+                        if (costoEl) costoEl.textContent = `$${Number(costoPorCuota || 0).toFixed(2)}`;
+                        if (pagosEl) pagosEl.textContent = `${alumno.pagos_realizados || 0}/${totalPagos}`;
+                    }
+                } catch (e) {
+                    console.warn('No se pudieron cargar settings para ver alumnos', e);
+                }
+            } catch (err) {
+                console.error('Error mostrarAlumnos:', err);
+                document.getElementById("alumnosContainer").innerHTML = '<div class="empty">Error cargando alumnos.</div>';
+            }
+        }
+
+        function cambiarVista(vista) {
+            vistaActual = vista;
+            document.querySelectorAll('.vista-toggle button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.vista-toggle button').forEach((btn, idx) => {
+                if ((vista === 'todos' && idx === 0) || (vista === 'activos' && idx === 1) || (vista === 'baja' && idx === 2)) {
+                    btn.classList.add('active');
+                }
+            });
+            mostrarAlumnos();
+        }
+
+        function escapeHtml(str='') {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        async function abrirEditar(id) {
+            try {
+                await initIndexedDB();
+                const alumno = await obtenerAlumnoPorId(id);
+                if (!alumno) return;
+                alumnoEditandoId = alumno.id;
+
+                setEditValue("editMatricula", alumno.matricula || '');
+                setEditValue("editNombre", alumno.nombre || '');
+                setEditValue("editFechaNacimiento", alumno.fecha_nacimiento || '');
+                setEditValue("editEdad", alumno.edad || '');
+                setEditValue("editSexo", alumno.sexo || '');
+                setEditValue("editFecha", alumno.fecha_inscripcion || '');
+                setEditValue("editTelefono", alumno.telefono || '');
+                setEditValue("editTutor", alumno.tutor || '');
+                setEditValue("editDireccion", alumno.direccion || '');
+                setEditValue('editPoblacion', alumno.poblacion || '');
+                setEditValue('editColoniaCalleReferencia', alumno.colonia_calle_referencia || '');
+                setEditValue('editCostoColegiatura', alumno.costo_colegiatura != null ? alumno.costo_colegiatura : (alumno.custom_cost || 0));
+                setEditValue("editHorario", alumno.horario || '');
+                setEditValue("editCodigo", alumno.codigo || '');
+                setEditValue("editMontosCobro", alumno.monto_cobro || 0);
+                setEditValue("editAdeudos", alumno.adeudos || 0);
+                setEditValue("editFechaPrimerPago", alumno.fecha_primer_pago || '');
+
+                // Cargar asesores
+                const asesores = await cargarAsesores();
+                const selectAsesor = document.getElementById('editAsesorSelect');
+                selectAsesor.innerHTML = '<option value="">Seleccione un asesor…</option>';
+                asesores.forEach(asesor => {
+                    const option = document.createElement('option');
+                    option.value = asesor.id;
+                    option.textContent = asesor.nombre + ' (ID: ' + asesor.id + ')';
+                    selectAsesor.appendChild(option);
+                });
+                // Seleccionar el asesor actual
+                document.getElementById('editAsesorSelect').value = alumno.asesor_id || '';
+
+                // Cargar curso
+                document.getElementById('editCurso').value = alumno.curso || '';
+
+                // Cargar horarios dinámicamente desde BD
+                try {
+                    const horarios = await cargarHorarios();
+                    const selectHorario = document.getElementById('editHorario');
+                    selectHorario.innerHTML = '<option value="">Seleccione un horario…</option>';
+                    horarios.forEach(h => {
+                        const option = document.createElement('option');
+                        option.value = h.nombre;
+                        option.textContent = h.nombre;
+                        selectHorario.appendChild(option);
+                    });
+                    // Seleccionar el horario actual
+                    selectHorario.value = alumno.horario || '';
+                } catch (e) {
+                    console.warn('Error cargando horarios:', e);
+                }
+
+                document.getElementById("msgEdit").textContent = '';
+                document.getElementById("editModal").classList.add('show');
+            } catch (err) {
+                console.error('abrirEditar error:', err);
+            }
+        }
+
+        function cerrarModal() {
+            document.getElementById("editModal").classList.remove('show');
+            alumnoEditandoId = null;
+        }
+
+        async function guardarCambios() {
+            const msg = document.getElementById("msgEdit");
+            const matricula = getEditInput("editMatricula")?.value.trim() || '';
+            const nombre = getEditInput("editNombre")?.value.trim() || '';
+            const fechaNacimiento = getEditInput("editFechaNacimiento")?.value || '';
+            const edad = getEditInput("editEdad")?.value.trim() || '';
+            const sexo = getEditInput("editSexo")?.value || '';
+            const fecha = getEditInput("editFecha")?.value || '';
+            const telefono = getEditInput("editTelefono")?.value.trim() || '';
+            const tutor = getEditInput("editTutor")?.value.trim() || '';
+            const direccion = getEditInput("editDireccion")?.value.trim() || '';
+            const horario = getEditInput("editHorario")?.value || '';
+            const codigo = getEditInput("editCodigo")?.value.trim() || '';
+            const monto_cobro = parseFloat(getEditInput("editMontosCobro")?.value || '') || 0;
+            const adeudos = parseInt(getEditInput("editAdeudos")?.value || '') || 0;
+            const fechaPrimerPago = getEditInput("editFechaPrimerPago")?.value || '';
+            const asesorId = getEditInput("editAsesorSelect")?.value || '';
+            const curso = getEditInput("editCurso")?.value || '';
+            const poblacion = getEditInput("editPoblacion")?.value.trim() || '';
+            const coloniaCalleReferencia = getEditInput("editColoniaCalleReferencia")?.value.trim() || '';
+            const costoColegiatura = parseFloat(getEditInput("editCostoColegiatura")?.value || '') || 0;
+
+            if (!matricula || !nombre || !fechaNacimiento || !edad || !sexo || !fecha || !telefono || !tutor || !direccion || !poblacion || !coloniaCalleReferencia || costoColegiatura <= 0 || !horario || !codigo || !fechaPrimerPago || !asesorId || !curso) {
+                msg.classList.remove('success');
+                msg.classList.add('error');
+                msg.textContent = "Todos los campos son obligatorios y el costo debe ser mayor a 0.";
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                const alumno = await obtenerAlumnoPorId(alumnoEditandoId);
+                if (!alumno) {
+                    msg.classList.remove('success');
+                    msg.classList.add('error');
+                    msg.textContent = "Alumno no encontrado.";
+                    return;
+                }
+
+                // asegurar campos de pagos
+                if (alumno.pagos_realizados === undefined) alumno.pagos_realizados = 0;
+                if (alumno.pagos_totales === undefined) alumno.pagos_totales = 55;
+                if (!Array.isArray(alumno.pagos)) alumno.pagos = [];
+
+                alumno.matricula = matricula;
+                alumno.nombre = nombre;
+                alumno.fecha_nacimiento = fechaNacimiento;
+                alumno.edad = parseInt(edad);
+                alumno.sexo = sexo;
+                alumno.fecha_inscripcion = fecha;
+                alumno.telefono = telefono;
+                alumno.tutor = tutor;
+                alumno.direccion = direccion;
+                alumno.poblacion = poblacion;
+                alumno.colonia_calle_referencia = coloniaCalleReferencia;
+                alumno.costo_colegiatura = costoColegiatura;
+                alumno.horario = horario;
+                alumno.codigo = codigo;
+                alumno.monto_cobro = monto_cobro > 0 ? monto_cobro : costoColegiatura;
+                alumno.adeudos = adeudos;
+                alumno.fecha_primer_pago = fechaPrimerPago;
+                alumno.asesor_id = parseInt(asesorId);
+                alumno.curso = curso;
+
+                if (!alumno.becado) {
+                    alumno.custom_cost = costoColegiatura;
+                }
+
+                await actualizarAlumno(alumno);
+
+                msg.classList.add('success');
+                msg.classList.remove('error');
+                msg.textContent = "✔ Alumno actualizado correctamente";
+
+                setTimeout(() => {
+                    cerrarModal();
+                    mostrarAlumnos();
+                }, 800);
+            } catch (err) {
+                console.error('guardarCambios error:', err);
+                msg.classList.add('error');
+                msg.classList.remove('success');
+                msg.textContent = "Error al guardar cambios.";
+            }
+        }
+
+        async function darDeBaja(id) {
+            if (!confirm("¿Está seguro de que desea dar de baja temporal a este alumno?")) return;
+            try {
+                await initIndexedDB();
+                const alumno = await obtenerAlumnoPorId(id);
+                if (!alumno) return;
+                alumno.baja_temporal = true;
+                await actualizarAlumno(alumno);
+                mostrarAlumnos();
+            } catch (err) { 
+                console.error('Error darDeBaja:', err); 
+            }
+        }
+
+        async function reactivarAlumno(id) {
+            if (!confirm("¿Está seguro de que desea reactivar a este alumno?")) return;
+            try {
+                await initIndexedDB();
+                const alumno = await obtenerAlumnoPorId(id);
+                if (!alumno) return;
+                alumno.baja_temporal = false;
+                await actualizarAlumno(alumno);
+                mostrarAlumnos();
+            } catch (err) { 
+                console.error('Error reactivarAlumno:', err); 
+            }
+        }
+
+        async function eliminarAlumnoConfirm(id) {
+            if (!confirm("¿Está seguro de que desea ELIMINAR permanentemente este alumno? Esta acción no se puede deshacer.")) return;
+            try {
+                await initIndexedDB();
+                await eliminarAlumno(id);
+                mostrarAlumnos();
+            } catch (err) { 
+                console.error('Error eliminarAlumnoConfirm:', err); 
+                alert('Error al eliminar alumno');
+            }
+        }
+
+        async function filtrarAlumnos() {
+            const filtro = document.getElementById("filtroAlumnos").value.trim();
+            const container = document.getElementById("alumnosContainer");
+
+            if (!filtro) {
+                mostrarAlumnos();
+                return;
+            }
+
+            await initIndexedDB();
+            const alumnos = await cargarAlumnos();
+
+            if (!alumnos || alumnos.length === 0) {
+                container.innerHTML = '<div class="empty">No hay alumnos registrados.</div>';
+                return;
+            }
+
+            let alumnosFiltrados = alumnos;
+            if (vistaActual === "activos") alumnosFiltrados = alumnos.filter(a => !a.baja_temporal);
+            else if (vistaActual === "baja") alumnosFiltrados = alumnos.filter(a => a.baja_temporal);
+
+            const filtroNormalizado = normalizarTexto(filtro);
+
+            const encontrados = alumnosFiltrados.filter(a => {
+                return normalizarTexto(a.nombre).includes(filtroNormalizado) ||
+                       normalizarTexto(a.codigo || '').includes(filtroNormalizado) ||
+                       normalizarTexto(a.matricula || '').includes(filtroNormalizado);
+            });
+
+            if (!encontrados || encontrados.length === 0) {
+                container.innerHTML = '<div class="empty">No se encontraron alumnos con ese criterio.</div>';
+                return;
+            }
+
+            const msg = document.createElement('div');
+            msg.style.cssText = 'background:#4caf50;color:white;padding:10px;border-radius:5px;text-align:center;margin-bottom:15px;font-weight:bold;';
+            msg.textContent = `✔ Se encontró ${encontrados.length} alumno(s)`;
+            container.innerHTML = '';
+            container.appendChild(msg);
+
+            encontrados.forEach(alumno => {
+                if (alumno.pagos_realizados === undefined) alumno.pagos_realizados = 0;
+                if (alumno.pagos_totales === undefined) alumno.pagos_totales = 55;
+                if (!Array.isArray(alumno.pagos)) alumno.pagos = [];
+                if (alumno.monto_cobro === undefined) alumno.monto_cobro = 0;
+                if (alumno.adeudos === undefined) alumno.adeudos = 0;
+
+                const estadoClass = alumno.baja_temporal ? 'baja' : '';
+                const estadoBadge = alumno.baja_temporal
+                    ? '<span class="estado-badge estado-baja">Baja Temporal</span>'
+                    : '<span class="estado-badge estado-activo">Activo</span>';
+
+                const card = document.createElement('div');
+                card.className = `alumno-card ${estadoClass}`;
+                card.innerHTML = `
+                    <h3>${escapeHtml(alumno.nombre)} ${estadoBadge}</h3>
+                    <div class="alumno-info-grid">
+                        <div class="alumno-info"><span class="alumno-label">Código:</span> ${escapeHtml(alumno.codigo || '-')}</div>
+                        <div class="alumno-info"><span class="alumno-label">Matrícula:</span> ${escapeHtml(alumno.matricula || '-')}</div>
+                        <div class="alumno-info"><span class="alumno-label">Población:</span> ${escapeHtml(alumno.poblacion || '-')}</div>
+                        <div class="alumno-info"><span class="alumno-label">Referencia:</span> ${escapeHtml(alumno.colonia_calle_referencia || '-')}</div>
+                        <div class="alumno-info"><span class="alumno-label">Horario:</span> ${escapeHtml(alumno.horario || '-')}</div>
+                        <div class="alumno-info"><span class="alumno-label">Curso:</span> <span id="curso_${alumno.id}">${escapeHtml(alumno.curso || '-')}</span></div>
+                        <div class="alumno-info"><span class="alumno-label">Costo por cuota:</span> <span id="costo_${alumno.id}">-</span></div>
+                        <div class="alumno-info"><span class="alumno-label">Pagos:</span> <span id="pagos_${alumno.id}">${escapeHtml(String(alumno.pagos_realizados || 0))}/${escapeHtml(String(alumno.pagos_totales || '55'))}</span></div>
+                        <div class="alumno-info"><span class="alumno-label">Adeudos:</span> ${escapeHtml(String(alumno.adeudos || 0))}</div>
+                        <div class="alumno-info"><span class="alumno-label">Fecha Primer Pago:</span> ${escapeHtml(alumno.fecha_primer_pago || '-')}</div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-accion btn-edit" onclick="abrirEditar(${alumno.id})">Editar</button>
+                        <button class="btn-accion" onclick="verPagos(${alumno.id})">Ver Pagos</button>
+                        ${alumno.baja_temporal ? 
+                            `<button class="btn-accion btn-reactivar" onclick="reactivarAlumno(${alumno.id})">Reactivar</button>` :
+                            `<button class="btn-accion btn-baja" onclick="darDeBaja(${alumno.id})">Baja Temporal</button>`
+                        }
+                        <button class="btn-accion btn-delete" onclick="eliminarAlumnoConfirm(${alumno.id})">Eliminar</button>
+                        <button class="btn-accion" onclick="moverAlumno(${alumno.id})" style="background:#1976d2;color:white;">Cambiar Grupo</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Rellenar nombre de asesor en resultados de búsqueda
+            for (const alumno of encontrados) {
+                const span = document.getElementById(`asesor_${alumno.id}`);
+                if (!span) continue;
+                if (alumno.asesor_id) {
+                    try {
+                        const a = await obtenerAsesorPorId(alumno.asesor_id);
+                        span.textContent = a ? `${a.nombre} (ID: ${a.id})` : 'No encontrado';
+                    } catch (e) {
+                        console.warn('Error al obtener asesor', e);
+                        span.textContent = 'Error';
+                    }
+                } else {
+                    span.textContent = 'No asignado';
+                }
+            }
+        }
+
+        async function verPagos(id) {
+            try {
+                await initIndexedDB();
+                const alumno = await obtenerAlumnoPorId(id);
+                if (!alumno) return;
+                const list = document.getElementById('paymentsList');
+                list.innerHTML = '';
+
+                if (!Array.isArray(alumno.pagos) || alumno.pagos.length === 0) {
+                    list.innerHTML = '<div class="empty">No hay pagos registrados para este alumno.</div>';
+                } else {
+                    alumno.pagos.slice().reverse().forEach((p, reversedIndex) => {
+                        const originalIndex = alumno.pagos.length - 1 - reversedIndex;
+                        const dt = new Date(p.timestamp);
+                        const fecha = dt.toLocaleDateString();
+                        const hora = dt.toLocaleTimeString();
+                        const tipoLabel = p.tipo === 'otros' ? '<div style="font-size:12px;color:#1565c0;font-weight:bold;">Otros: ' + escapeHtml(p.concepto || 'Sin concepto') + '</div>' : '<div style="font-size:12px;color:#2e7d32;font-weight:bold;">Pago normal</div>';
+                        const amountColor = p.tipo === 'otros' ? '#1565c0' : '#8c1936';
+                        const item = document.createElement('div');
+                        item.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="font-weight:bold;color:${amountColor};">$${(p.amount||0).toFixed(2)}</div>
+                                ${tipoLabel}
+                                <div style="font-size:12px;color:#001f54;">${fecha} ${hora}</div>
+                            </div>
+                            <button onclick="cancelarPago(${alumno.id}, ${originalIndex})" style="background:#d32f2f;color:white;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;">Cancelar</button>
+                        </div>`;
+                        list.appendChild(item);
+                    });
+                }
+
+                document.getElementById('paymentsModalTitle').textContent = `Pagos de: ${alumno.nombre}`;
+                document.getElementById('paymentsModal').classList.add('show');
+            } catch (err) {
+                console.error('Error verPagos:', err);
+            }
+        }
+
+        function cerrarPaymentsModal() {
+            document.getElementById('paymentsModal').classList.remove('show');
+        }
+
+        async function cancelarPago(alumnoId, paymentIndex) {
+            if (!confirm("¿Está seguro de que desea cancelar este pago? Esta acción no se puede deshacer.")) return;
+            try {
+                await initIndexedDB();
+                const alumno = await obtenerAlumnoPorId(alumnoId);
+                if (!alumno || !alumno.pagos || paymentIndex >= alumno.pagos.length) {
+                    alert('Error: Pago no encontrado.');
+                    return;
+                }
+
+                // Guardar monto antes de eliminar
+                const montoCancelado = alumno.pagos[paymentIndex].amount;
+
+                // Guardar el pago antes de eliminarlo para ajustar el conteo solo si es un pago normal
+                const pagoCancelado = alumno.pagos[paymentIndex];
+                alumno.pagos.splice(paymentIndex, 1);
+
+                // Disminuir pagos_realizados solo para pagos normales
+                if (pagoCancelado && pagoCancelado.tipo !== 'otros' && alumno.pagos_realizados > 0) {
+                    alumno.pagos_realizados -= 1;
+                }
+
+                // Actualizar el alumno en la BD
+                await actualizarAlumno(alumno);
+
+                // Registrar movimiento en caja
+                await agregarMovimiento({
+                    fecha: new Date().toISOString().split('T')[0],
+                    tipo: 'cancelacion',
+                    alumno_id: alumnoId,
+                    alumno_nombre: alumno.nombre,
+                    monto: montoCancelado,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Recargar el modal de pagos
+                await verPagos(alumnoId);
+
+                // Actualizar las tarjetas de alumnos para reflejar el cambio
+                mostrarAlumnos();
+
+                alert('Pago cancelado correctamente.');
+            } catch (e) {
+                console.error('Error cancelando pago:', e);
+                alert('Error al cancelar el pago.');
+            }
+        }
+
+        async function moverAlumno(alumnoId) {
+            try {
+                await initIndexedDB();
+                const grupos = await cargarGrupos();
+                if (!grupos || grupos.length === 0) {
+                    alert('No hay grupos disponibles. Cree primero al menos un grupo.');
+                    return;
+                }
+                const lista = grupos.map(g => `${g.id}: ${g.nombre} (Alumnos: ${ (g.alumno_ids||[]).length })`).join('\n');
+                const raw = prompt('Elija ID de grupo destino (de la lista) o deje vacío para quitar el alumno de su grupo:\n' + lista, '');
+                if (raw === null) return; // cancel
+                const destId = raw.trim() === '' ? null : parseInt(raw.trim());
+                // quitar alumno de su(s) grupo(s) actual(es)
+                for (const g of grupos) {
+                    if ((g.alumno_ids || []).includes(alumnoId)) {
+                        g.alumno_ids = (g.alumno_ids || []).filter(id => Number(id) !== Number(alumnoId));
+                        await actualizarGrupo(g);
+                    }
+                }
+                if (destId) {
+                    const destino = grupos.find(x => Number(x.id) === Number(destId));
+                    if (!destino) {
+                        alert('Grupo destino no encontrado.');
+                        return;
+                    }
+                    destino.alumno_ids = destino.alumno_ids || [];
+                    if (!destino.alumno_ids.includes(alumnoId)) destino.alumno_ids.push(alumnoId);
+                    await actualizarGrupo(destino);
+                }
+                alert('Operación completada.');
+                mostrarAlumnos();
+            } catch (e) {
+                console.error('moverAlumno error:', e);
+                alert('Error moviendo alumno: ' + (e.message || e));
+            }
+        }
+
+        // Event listener para calcular edad automáticamente en edición
+        const editFechaNacimientoEl = document.getElementById('editFechaNacimiento');
+        if (editFechaNacimientoEl) {
+            editFechaNacimientoEl.addEventListener('change', function() {
+                const fechaNacimiento = this.value;
+                const edad = calcularEdad(fechaNacimiento);
+                const editEdadEl = document.getElementById('editEdad');
+                if (editEdadEl) editEdadEl.value = edad;
+            });
+        }
+
+        // cerrar modales clic fuera
+        window.onclick = function(event) {
+            const editModal = document.getElementById("editModal");
+            const paymentsModal = document.getElementById("paymentsModal");
+            if (event.target === editModal) { event.preventDefault(); cerrarModal(); }
+            if (event.target === paymentsModal) { event.preventDefault(); cerrarPaymentsModal(); }
+        };
+
+        // cargar al abrir
+        document.addEventListener("DOMContentLoaded", () => {
+            initIndexedDB().then(() => mostrarAlumnos()).catch(err => {
+                console.error('Error inicializando DB en DOMContentLoaded:', err);
+                mostrarAlumnos();
+            });
+
+            // permitir búsqueda al presionar Enter
+            const filtroInput = document.getElementById('filtroAlumnos');
+            if (filtroInput) {
+                filtroInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') filtrarAlumnos();
+                });
+            }
+        });
+    </script>
+</body>
+</html>

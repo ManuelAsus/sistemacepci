@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Maestro - CEPCI</title>
+
+    <style>
+        :root{
+            --accent:#8c1936;
+            --accent-contrast:#CFB53B;
+            --muted:#555;
+            --card-bg:#fff;
+            --shadow:0 0 14px rgba(0,0,0,0.12);
+            --radius:12px;
+        }
+        body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: #f7f7f7; color:#0b2540; }
+        .header { background: var(--accent); padding: 14px 18px; color: white; font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+        .back { background: var(--accent-contrast); padding: 10px 14px; border-radius: 8px; cursor: pointer; color: var(--accent); font-weight: 700; border: none; }
+        .back:hover { filter: brightness(.98); }
+
+        .container { margin: 28px auto; width: 94%; max-width: 900px; background: var(--card-bg); padding: 22px; border-radius: 14px; box-shadow: var(--shadow); }
+        h2 { color: #001f54; text-align: center; margin-bottom: 18px; font-size: 20px; }
+        label { font-weight: 700; color: var(--accent); display:block; margin-bottom:6px; font-size:14px; }
+        input, select, textarea { width: 100%; padding: 10px 12px; margin-top: 4px; margin-bottom: 14px; border: 1.8px solid rgba(140,25,54,0.14); border-radius: 10px; font-size: 14px; box-sizing: border-box; color: #0b2540; background: #fff; }
+        input[type="file"] { padding: 8px 6px; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent-contrast); box-shadow: 0 4px 14px rgba(203,171,63,0.12); outline: none; }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+        .form-full { grid-column: 1 / -1; }
+
+        .btn { padding: 10px 14px; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 15px; font-weight: 700; }
+        .btn:hover { background: var(--accent-contrast); color: var(--accent); }
+
+        .save-btn { background: var(--accent); color: white; border: none; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 15px; font-weight: 800; box-shadow: 0 6px 18px rgba(140,25,54,0.06); }
+        .save-btn:hover { background: var(--accent-contrast); color: var(--accent); }
+
+        .msg { margin-top: 12px; text-align: center; font-weight: 700; min-height: 22px; }
+
+        .preview-row { display:flex; gap:12px; align-items:center; margin-top:6px; margin-bottom:14px; }
+        .preview-img { width:96px; height:96px; object-fit:cover; border-radius:8px; border:1px solid rgba(12,20,34,0.06); display:none; box-shadow: 0 4px 10px rgba(2,10,20,0.04); }
+
+        .actions { display:flex; gap:12px; margin-top:12px; align-items:center; }
+        .actions .save-btn { flex:1; }
+        .actions .btn { flex:1; background:#f1f1f1; color:#333; border:1px solid rgba(11,37,64,0.06); font-weight:700; }
+        .actions .btn:hover { background:#fff; color:var(--accent); border-color:rgba(140,25,54,0.12); }
+
+        /* Mobile adjustments */
+        @media (max-width:720px){
+            .form-row { grid-template-columns: 1fr; }
+            .actions { flex-direction: column; }
+            .preview-row{ justify-content:flex-start; }
+        }
+    </style>
+
+    <!-- IndexedDB helper -->
+    <script src="js/db.js"></script>
+
+    <script>
+        // Protección: si no inició sesión, regresar
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        // Obtener próximo ID de maestro
+        async function obtenerProximoIdMaestro() {
+            const maestros = await cargarMaestros();
+            if (!maestros || maestros.length === 0) return 'M00001';
+            const maxNum = Math.max(...maestros.map(m => {
+                const match = String(m.id || '').match(/(\d+)$/);
+                return match ? parseInt(match[1]) : 0;
+            }));
+            const nextNum = maxNum + 1;
+            return 'M' + String(nextNum).padStart(5, '0');
+        }
+
+        // Mostrar vista previa de imagen al seleccionar
+        function mostrarPreviewFile(inputEl, previewEl) {
+            if (!inputEl || !previewEl) return;
+            const file = inputEl.files && inputEl.files[0];
+            if (!file) {
+                previewEl.style.display = 'none';
+                previewEl.src = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewEl.src = e.target.result;
+                previewEl.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearPreviews() {
+            ['previewFoto','previewIneA','previewIneR'].forEach(id=>{
+                const el=document.getElementById(id);
+                if(el){ el.src=''; el.style.display='none'; }
+            });
+        }
+
+        async function registrarMaestro() {
+            const id = document.getElementById("id").value.trim();
+            const nombre = document.getElementById("nombre").value.trim();
+            const curp = document.getElementById("curp").value.trim();
+            const rfc = document.getElementById("rfc").value.trim();
+            const edad = document.getElementById("edad").value.trim();
+            const sexo = document.getElementById("sexo").value;
+            const fechaNacimiento = document.getElementById("fecha_nacimiento").value;
+            const direccion = document.getElementById("direccion").value.trim();
+            const fotografia = document.getElementById("fotografia").files[0];
+            const ineAnverso = document.getElementById("ine_anverso").files[0];
+            const ineReverso = document.getElementById("ine_reverso").files[0];
+            const msg = document.getElementById("msg");
+
+            msg.textContent = '';
+            try {
+                if (!id || !nombre || !edad || !sexo || !fechaNacimiento) {
+                    msg.style.color = "red";
+                    msg.textContent = "Rellena todos los campos requeridos (CURP, Dirección, RFC e imágenes son opcionales).";
+                    return;
+                }
+
+                await initIndexedDB();
+
+                // Guardar imágenes sólo si se seleccionaron (permite actualizar sin re-subir)
+                const fotoId = `maestro_${id}_foto`;
+                const ineAnversoId = `maestro_${id}_ine_anverso`;
+                const ineReversoId = `maestro_${id}_ine_reverso`;
+
+                if (fotografia) await guardarImagen(fotoId, fotografia);
+                if (ineAnverso) await guardarImagen(ineAnversoId, ineAnverso);
+                if (ineReverso) await guardarImagen(ineReversoId, ineReverso);
+
+                let nuevoMaestro = {
+                    id,
+                    nombre,
+                    curp,
+                    rfc,
+                    edad,
+                    sexo,
+                    fecha_nacimiento: fechaNacimiento,
+                    direccion,
+                    fotografia_id: fotoId,
+                    ine_anverso_id: ineAnversoId,
+                    ine_reverso_id: ineReversoId
+                };
+
+                const maestrosExistentes = await cargarMaestros();
+                const existe = maestrosExistentes && maestrosExistentes.find(m => m.id === id);
+
+                if (existe) {
+                    await actualizarMaestro(nuevoMaestro);
+                    msg.style.color = "green";
+                    msg.textContent = "Maestro actualizado correctamente ✔";
+                } else {
+                    try {
+                        await agregarMaestro(nuevoMaestro);
+                        msg.style.color = "green";
+                        msg.textContent = "Maestro registrado correctamente ✔";
+                        // Cargar siguiente ID
+                        const proximoId = await obtenerProximoIdMaestro();
+                        document.getElementById('id').value = proximoId;
+                    } catch (err) {
+                        console.warn('agregarMaestro falló, fallback actualizar:', err);
+                        if (err && err.name === 'ConstraintError') {
+                            await actualizarMaestro(nuevoMaestro);
+                            msg.style.color = "green";
+                            msg.textContent = "Maestro actualizado (fallback) ✔";
+                        } else {
+                            throw err;
+                        }
+                    }
+                }
+
+                document.getElementById("maestroForm").reset();
+                clearPreviews();
+            } catch (error) {
+                console.error("Error al registrar maestro:", error);
+                msg.style.color = "red";
+                msg.textContent = "Error al registrar maestro: " + (error.message || error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const fotoInput = document.getElementById('fotografia'), previewFoto = document.getElementById('previewFoto');
+            if (fotoInput) fotoInput.addEventListener('change', () => mostrarPreviewFile(fotoInput, previewFoto));
+
+            const ineAInput = document.getElementById('ine_anverso'), previewIneA = document.getElementById('previewIneA');
+            if (ineAInput) ineAInput.addEventListener('change', () => mostrarPreviewFile(ineAInput, previewIneA));
+
+            const ineRInput = document.getElementById('ine_reverso'), previewIneR = document.getElementById('previewIneR');
+            if (ineRInput) ineRInput.addEventListener('change', () => mostrarPreviewFile(ineRInput, previewIneR));
+
+            // Calcular edad automáticamente cuando cambia fecha de nacimiento
+            const calculaEdadAutomatica = () => {
+                const fechaNacInput = document.getElementById('fecha_nacimiento');
+                const edadInput = document.getElementById('edad');
+                if (fechaNacInput && edadInput) {
+                    const fecha = fechaNacInput.value;
+                    if (fecha) {
+                        const edad = calcularEdad(fecha);
+                        if (edad !== null && edad >= 0) {
+                            edadInput.value = edad;
+                        }
+                    }
+                }
+            };
+            
+            const fechaNacInput = document.getElementById('fecha_nacimiento');
+            if (fechaNacInput) {
+                // Eventos change e input para capturar cambios del calendario y escritura manual
+                fechaNacInput.addEventListener('change', calculaEdadAutomatica);
+                fechaNacInput.addEventListener('input', calculaEdadAutomatica);
+            }
+
+            const form = document.getElementById('maestroForm');
+            if (form) form.addEventListener('submit', (e) => { e.preventDefault(); registrarMaestro(); });
+
+            try {
+                await initIndexedDB();
+                // Cargar próximo ID
+                const proximoId = await obtenerProximoIdMaestro();
+                document.getElementById('id').value = proximoId;
+            } catch (err) {
+                console.error('Error inicializando IndexedDB en maestros:', err);
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <div class="header">
+        Registrar Maestro - CEPCI
+        <button class="back" onclick="location.href='dashboard.html'">Regresar</button>
+    </div>
+
+    <div class="container">
+        <h2>Formulario de Registro de Maestros</h2>
+
+        <form id="maestroForm" autocomplete="off">
+
+            <div class="form-row">
+                <div>
+                    <label for="id">ID (Auto-generado)</label>
+                    <input type="text" id="id" placeholder="Ejemplo: M00001" readonly />
+                </div>
+                <div>
+                    <label for="nombre">Nombre Completo</label>
+                    <input id="nombre" placeholder="Ej. María López" required />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="curp">CURP (Opcional)</label>
+                    <input id="curp" placeholder="Ejemplo: ABCD123456HDFRNN09" />
+                </div>
+                <div>
+                    <label for="rfc">RFC (Opcional)</label>
+                    <input id="rfc" placeholder="Ejemplo: ABCD123456ABC" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="edad">Edad</label>
+                    <input id="edad" type="number" min="18" placeholder="Edad en años" />
+                </div>
+                <div>
+                    <label for="sexo">Sexo</label>
+                    <select id="sexo">
+                        <option value="">Seleccione…</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Femenino">Femenino</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-full">
+                <label for="fecha_nacimiento">Fecha de Nacimiento</label>
+                <input id="fecha_nacimiento" type="date" />
+            </div>
+
+            <div class="form-full">
+                <label for="direccion">Dirección (Opcional)</label>
+                <input id="direccion" placeholder="Dirección completa" />
+            </div>
+
+            <div class="form-full">
+                <label>Fotografía</label>
+                <input id="fotografia" type="file" accept="image/*" />
+                <div class="preview-row">
+                    <img id="previewFoto" class="preview-img" alt="Preview foto" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label>INE Anverso</label>
+                    <input id="ine_anverso" type="file" accept="image/*" />
+                    <div class="preview-row"><img id="previewIneA" class="preview-img" alt="Preview INE Anverso" /></div>
+                </div>
+                <div>
+                    <label>INE Reverso</label>
+                    <input id="ine_reverso" type="file" accept="image/*" />
+                    <div class="preview-row"><img id="previewIneR" class="preview-img" alt="Preview INE Reverso" /></div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="save-btn" onclick="registrarMaestro()">Guardar Maestro</button>
+                <button type="button" class="btn" onclick="document.getElementById('maestroForm').reset(); clearPreviews();">Limpiar</button>
+            </div>
+
+            <div id="msg" class="msg"></div>
+        </form>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Información Escolar - CEPCI</title>
+    <style>
+        body{margin:0;font-family:Arial,sans-serif;background:#f1f1f1;color:#0b2540}
+        .header{background:#8c1936;padding:16px 20px;color:#fff;font-size:22px;font-weight:700;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+        .back{background:#CFB53B;padding:10px 14px;border-radius:8px;cursor:pointer;color:#8c1936;font-weight:700;border:none;transition:.2s}
+        .back:hover{filter:brightness(.90)}
+        .container{margin:32px auto;width:90%;max-width:1000px;background:#fff;padding:30px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+        h2{text-align:center;color:#001f54;margin-bottom:24px;font-size:24px}
+        .section{margin-bottom:32px}
+        .section h3{color:#8c1936;margin-bottom:12px;border-bottom:2px solid #8c1936;padding-bottom:6px}
+        label{font-weight:700;color:#8c1936;display:block;margin-bottom:6px;font-size:15px}
+        input,textarea,select{width:100%;padding:12px 14px;margin-top:4px;margin-bottom:18px;border:1.8px solid rgba(140,25,54,0.20);border-radius:12px;font-size:15px;box-sizing:border-box;color:#0b2540;background:#fff;transition:.2s}
+        input:focus,textarea:focus,select:focus{border-color:#CFB53B;box-shadow:0 0 6px rgba(204,181,63,0.3);outline:none}
+        textarea{resize:vertical;height:100px}
+        .btn{padding:12px 18px;background:#8c1936;color:#fff;border:none;border-radius:12px;cursor:pointer;font-size:16px;font-weight:700;transition:.2s}
+        .btn:hover{background:#CFB53B;color:#8c1936}
+        .msg{margin-top:16px;text-align:center;font-weight:700;min-height:24px}
+        .logo-preview{max-width:220px;max-height:220px;margin-bottom:12px;border:2px solid #8c1936;border-radius:12px}
+        .map-container{margin-top:20px;border:2px solid #ddd;border-radius:12px;overflow:hidden;height:450px;width:100%;}
+        .map-container iframe{width:100%;height:100%;border:0;}
+    </style>
+    <script src="js/db.js"></script>
+    <script>
+        const maps = {
+            'Emiliano Zapata': '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3800.050579393211!2d-91.7672224!3d17.7422558!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x85f3cbd820eba6f3%3A0xa57a8cf6e83224d4!2sCepci!5e0!3m2!1ses-419!2smx!4v1773166800866!5m2!1ses-419!2smx" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>',
+            'Playas de Catazajá': '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d237.52433413827663!2d-92.01461055897886!3d17.72628464001422!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x85f239bc520bcdbf%3A0x7f3ef8e42b355494!2sAv.%20Morelos%20824%2C%20Centro%2C%2029980%20Catazaj%C3%A1%2C%20Chis.!5e0!3m2!1ses-419!2smx!4v1773169245272!5m2!1ses-419!2smx" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>',
+            'Balancán': '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d976.9409376758122!2d-91.53442292046184!3d17.79717999745173!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x85f3c26058cd3979%3A0x3ee0c218086516cf!2zQmFsYW5jw6FuLCBUYWIu!5e0!3m2!1ses-419!2smx!4v1773169603961!5m2!1ses-419!2smx" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
+        };
+
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        async function loadInfo() {
+            await initIndexedDB();
+            const schoolName = await getSetting('schoolName') || 'CEPCI';
+            const campuses = await getSetting('schoolCampuses') || 'Matriz Emiliano Zapata, Campus Playas, Campus Balancán';
+            const phones = await getSetting('schoolPhones') || '9341065187, 9341279833';
+            const address = await getSetting('schoolAddress') || 'C. Corregidora #66, col centro, Centro, 86990 Emiliano Zapata, Tab.';
+            const selectedCampus = await getSetting('selectedCampus') || 'Emiliano Zapata';
+            const logoUrl = await obtenerImagen('school_logo') || 'logocepci.jpg';
+
+            document.getElementById('schoolName').value = schoolName;
+            document.getElementById('schoolCampuses').value = campuses;
+            document.getElementById('schoolPhones').value = phones;
+            document.getElementById('schoolAddress').value = address;
+            document.getElementById('campusSelect').value = selectedCampus;
+            const output = document.getElementById('mapOutput');
+            output.innerHTML = maps[selectedCampus];
+            const logoPreview = document.getElementById('logoPreview');
+            if (logoUrl) {
+                logoPreview.src = logoUrl;
+                logoPreview.style.display = 'block';
+            }
+        }
+
+        async function saveInfo() {
+            const name = document.getElementById('schoolName').value.trim();
+            const camps = document.getElementById('schoolCampuses').value.trim();
+            const phones = document.getElementById('schoolPhones').value.trim();
+            const addr = document.getElementById('schoolAddress').value.trim();
+            const selectedCampus = document.getElementById('campusSelect').value;
+            const logoFile = document.getElementById('schoolLogo').files[0];
+            if (!name) {
+                alert('El nombre de la escuela es obligatorio');
+                return;
+            }
+            try {
+                await setSetting('schoolName', name);
+                await setSetting('schoolCampuses', camps);
+                await setSetting('schoolPhones', phones);
+                await setSetting('schoolAddress', addr);
+                await setSetting('selectedCampus', selectedCampus);
+                if (logoFile) {
+                    await guardarImagen('school_logo', logoFile);
+                }
+                alert('Información guardada correctamente');
+            } catch (e) {
+                console.error(e);
+                alert('Error al guardar: ' + e.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInfo();
+            const select = document.getElementById('campusSelect');
+            const output = document.getElementById('mapOutput');
+            select.addEventListener('change', () => {
+                const selected = select.value;
+                output.innerHTML = maps[selected];
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="header">
+        Información Escolar - CEPCI
+        <button class="back" onclick="location.href='dashboard.html'">Regresar</button>
+    </div>
+    <div class="container">
+        <h2>Información General de la Escuela</h2>
+        <div class="section">
+            <h3>Logo y nombre</h3>
+            <label>Logo</label>
+            <img id="logoPreview" class="logo-preview" style="display:none" />
+            <input type="file" id="schoolLogo" accept="image/*" />
+            <label>Nombre de la escuela</label>
+            <input type="text" id="schoolName" placeholder="Centro de Estudios Profesionales en Computación e Idiomas" />
+        </div>
+        <div class="section">
+            <h3>Sucursales / Campus</h3>
+            <label>Campus</label>
+            <textarea id="schoolCampuses" placeholder="Ej. Emiliano Zapata (matriz), Playas de Catemajá, Balancán"></textarea>
+        </div>
+        <div class="section">
+            <h3>Contacto</h3>
+            <label>Teléfonos</label>
+            <textarea id="schoolPhones" placeholder="9341065187, 9341279833"></textarea>
+            <label>Dirección</label>
+            <textarea id="schoolAddress" placeholder="C. Corregidora #66, col centro, Centro, 86990 Emiliano Zapata, Tab."></textarea>
+        </div>
+        <div class="section">
+            <h3>Ubicación en el mapa</h3>
+            <label>Seleccionar Campus</label>
+            <select id="campusSelect">
+                <option value="Emiliano Zapata">Emiliano Zapata (Tabasco)</option>
+                <option value="Playas de Catazajá">Playas de Catazajá (Chiapas)</option>
+                <option value="Balancán">Balancán (Tabasco)</option>
+            </select>
+            <div id="mapOutput" class="map-container"></div>
+        </div>
+        <button class="btn" onclick="saveInfo()">Guardar Información</button>
+        <div id="msg" class="msg"></div>
+    </div>
+</body>
+</html>

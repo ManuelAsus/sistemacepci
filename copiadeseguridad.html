@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Copia de Seguridad - CEPCI</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f5f7fb; margin:0; padding:0; }
+    .header { background:#8c1936; color:white; padding:14px 18px; font-weight:bold; display:flex; justify-content:space-between; align-items:center; }
+    .header-right { display:flex; gap:10px; align-items:center; }
+    .container { max-width:900px; margin:28px auto; background:white; padding:20px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); }
+    h1 { margin:0 0 10px 0; color:#001f54; }
+    p { color:#333; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; }
+    button { background:#8c1936; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+    button.secondary { background:#CFB53B; color:#8c1936; }
+    button.back-btn { background:#CFB53B; color:#8c1936; padding:8px 12px; font-size:14px; }
+    input[type="file"] { display:none; }
+    .note { margin-top:12px; color:#555; font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>Copia de Seguridad - CEPCI</div>
+    <div class="header-right">
+      <div style="font-size:13px; opacity:0.9">Exportar / Importar backup completo de TODA la base de datos</div>
+      <button class="back-btn" onclick="location.href='dashboard.html'">← Regresar</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>Descargar respaldo completo</h1>
+    <p>Haz clic en "Exportar respaldo completo" para descargar un archivo JSON que contiene <strong>ABSOLUTAMENTE TODO</strong> el sistema CEPCI: alumnos, maestros, materias, asesores, grupos, usuarios, movimientos de caja, sesiones de caja, imágenes de perfil (en base64), y todas las configuraciones globales. Este es un respaldo 100% completo del sistema.</p>
+
+    <div class="row">
+      <button id="exportBtn">📦 Exportar respaldo COMPLETO del sistema (descargar .json)</button>
+    </div>
+
+    <div class="note">
+      <strong>Información importante:</strong> Este respaldo contiene ABSOLUTAMENTE TODOS los datos del sistema CEPCI incluyendo alumnos, maestros, materias, asesores, grupos, usuarios, caja (movimientos y sesiones), imágenes de perfil, y todas las configuraciones globales. Guarda el archivo en un lugar seguro (Documentos, USB, Google Drive, OneDrive, etc.). Para restaurarlo en otra PC, carga este archivo aquí en la sección "Importar respaldo". Este respaldo puede usarse para migrar el sistema completo a otra computadora.
+    </div>
+
+    <hr style="margin:18px 0" />
+
+    <h1>Importar respaldo (restaurar sistema completo)</h1>
+    <p>Si ya tienes un archivo de respaldo (.json) puedes importarlo aquí para restaurar COMPLETAMENTE el sistema. <strong>Esto reemplazará TODOS los datos actuales</strong> por los del backup (alumnos, maestros, materias, asesores, grupos, usuarios, caja completa, imágenes, configuraciones). Perfecto para migrar el sistema a otra PC o restaurar desde un respaldo anterior.</p>
+
+    <div class="row">
+      <input id="fileInput" type="file" accept=".json,application/json" />
+      <button id="chooseFile">Seleccionar archivo JSON</button>
+      <button id="importBtn" class="secondary" disabled>Importar archivo seleccionado</button>
+    </div>
+
+    <div id="status" class="note"></div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const exportBtn = document.getElementById('exportBtn');
+      const chooseFile = document.getElementById('chooseFile');
+      const importBtn = document.getElementById('importBtn');
+      const fileInput = document.getElementById('fileInput');
+      const status = document.getElementById('status');
+
+      exportBtn.addEventListener('click', async () => {
+        exportBtn.disabled = true;
+        status.textContent = 'Preparando exportación completa del sistema CEPCI (todos los módulos, datos, configuraciones, imágenes, usuarios, permisos)...';
+        try {
+          await initIndexedDB();
+          const stores = Array.from(db.objectStoreNames);
+          const exportObj = {};
+
+          for (const s of stores) {
+            exportObj[s] = await getAllFromStore(s);
+            if (s === 'imagenes') {
+              for (let r of exportObj[s]) {
+                if (r.blob && r.blob instanceof Blob) {
+                  r.blob = await blobToDataURL(r.blob);
+                }
+              }
+            }
+          }
+
+          const payload = {
+            meta: {
+              exportedAt: new Date().toISOString(),
+              app: 'SISTEMA CEPCI',
+              version: '2.0.0',
+              description: 'Respaldo COMPLETO del sistema CEPCI',
+              includes: 'Respaldo completo de todas las stores presentes en IndexedDB, incluyendo alumnos, maestros, materias, asesores, grupos, usuarios, usuarios de login, caja_movimientos, caja_sesiones, imágenes, settings, inventario, calificaciones y cualquier store adicional presente.',
+              dataIntegrity: 'Respaldo incluye TODA la base de datos: datos académicos, usuarios, permisos de módulos, caja completa, imágenes de perfil en base64, y todas las configuraciones del sistema.'
+            },
+            data: exportObj
+          };
+
+          const txt = JSON.stringify(payload, null, 2);
+          downloadFile(txt, `cepci-respaldo-completo-${new Date().toISOString().slice(0,10)}-${new Date().getTime()}.json`);
+          status.textContent = '✓ ¡Exportación completada exitosamente! Archivo descargado con TODOS los datos del sistema CEPCI.';
+        } catch (err) {
+          console.error('Error durante exportación:', err);
+          status.textContent = 'Error durante exportación: ' + (err.message || err);
+        } finally {
+          exportBtn.disabled = false;
+        }
+      });
+
+      chooseFile.addEventListener('click', () => fileInput.click());
+
+      fileInput.addEventListener('change', () => {
+        importBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+        status.textContent = fileInput.files && fileInput.files.length ? '✓ Archivo listo para importar: ' + fileInput.files[0].name : '';
+      });
+
+      importBtn.addEventListener('click', async () => {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const f = fileInput.files[0];
+        if (!confirm('⚠️ ADVERTENCIA IMPORTANTE:\n\nImportar un respaldo reemplazará COMPLETAMENTE todos los datos actuales del sistema CEPCI incluyendo:\n\n✓ Alumnos, maestros, materias, asesores\n✓ Grupos y asignaciones\n✓ Usuarios de caja y usuarios de login\n✓ Permisos de módulos\n✓ Registro de caja (movimientos y sesiones)\n✓ Imágenes de perfil\n✓ Inventario y calificaciones\n✓ Todas las configuraciones globales\n\n¿Deseas continuar? Esta acción NO se puede deshacer.')) return;
+        importBtn.disabled = true;
+        status.textContent = 'Importando respaldo completo del sistema (todos los módulos y datos)...';
+        try {
+          await importDatabaseFromFile(f);
+          status.textContent = '✓ ¡Importación completada exitosamente! TODOS los datos del sistema han sido restaurados en el estado actual del respaldo.';
+        } catch (err) {
+          console.error('Error durante importación:', err);
+          status.textContent = 'Error durante importación: ' + (err.message || err);
+        } finally {
+          importBtn.disabled = false;
+        }
+      });
+
+      // ========== HELPER FUNCTIONS ==========
+      function getAllFromStore(storeName) {
+        return new Promise((res, rej) => {
+          const tx = db.transaction([storeName], 'readonly');
+          const store = tx.objectStore(storeName);
+          const req = store.getAll();
+          req.onerror = () => rej(req.error);
+          req.onsuccess = () => res(req.result);
+        });
+      }
+
+      function blobToDataURL(blob) {
+        return new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onloadend = () => res(reader.result);
+          reader.onerror = rej;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function downloadFile(text, filename) {
+        const blob = new Blob([text], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      async function importDatabaseFromFile(file) {
+        async function readFileText(f) {
+          if (!f) return '';
+          if (typeof f.text === 'function') return await f.text();
+          return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('File read error'));
+            reader.readAsText(f);
+          });
+        }
+
+        const txt = await readFileText(file);
+        const parsed = JSON.parse(txt);
+        const data = parsed.data || {};
+        await initIndexedDB();
+
+        const stores = Array.from(db.objectStoreNames);
+
+        // Primero limpiar TODAS las stores
+        for (const s of stores) {
+          await new Promise((res,rej) => {
+            const tx = db.transaction([s], 'readwrite');
+            const store = tx.objectStore(s);
+            const req = store.clear();
+            req.onsuccess = () => tx.oncomplete = res;
+            req.onerror = () => rej(req.error);
+          }).catch(e=>{ 
+            console.warn('No se pudo limpiar store:', s, e); 
+          });
+        }
+
+        // Reinsertar registros (en transacciones separadas por store)
+        for (const s of stores) {
+          const arr = data[s] || [];
+          if (!arr || arr.length === 0) continue;
+          
+          await new Promise((res,rej) => {
+            const tx = db.transaction([s], 'readwrite');
+            const store = tx.objectStore(s);
+            for (const rec of arr) {
+              const toPut = Object.assign({}, rec);
+              // Convertir base64 de vuelta a Blob si es imágenes
+              if (s === 'imagenes' && toPut.blob && typeof toPut.blob === 'string') {
+                toPut.blob = dataURLtoBlob(toPut.blob);
+              }
+              store.put(toPut);
+            }
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+          });
+        }
+      }
+
+      function dataURLtoBlob(dataurl) {
+        const arr = dataurl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) u8arr[n] = bstr.charCodeAt(n);
+        return new Blob([u8arr], { type: mime });
+      }
+    });
+  </script>
+</body>
+</html>

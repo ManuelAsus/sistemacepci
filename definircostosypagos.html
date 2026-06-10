@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Definir Costos y Pagos - CEPCI</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#f7f7f7;margin:0}
+  .header{background:#8c1936;color:white;padding:14px;display:flex;justify-content:space-between;align-items:center}
+  .container{max-width:900px;margin:20px auto;background:white;padding:20px;border-radius:10px;box-shadow:0 0 12px rgba(0,0,0,.08)}
+  label{font-weight:bold;color:#8c1936;display:block;margin-top:10px}
+  input[type=number]{width:100%;padding:10px;border:2px solid #8c1936;border-radius:8px;box-sizing:border-box}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .btn{margin-top:14px;padding:10px 12px;background:#8c1936;color:white;border:none;border-radius:8px;cursor:pointer}
+  .small{font-size:13px;color:#333;margin-top:8px}
+</style>
+</head>
+<body>
+  <div class="header">
+    Definir Costos y Pagos
+    <div style="background:#CFB53B;padding:8px 10px;border-radius:8px;color:#8c1936;font-weight:bold;cursor:pointer" onclick="location.href='dashboard.html'">Volver</div>
+  </div>
+
+  <div class="container">
+    <h2>Tarifas Globales</h2>
+
+    <div class="row">
+      <div>
+        <label>Computación - Costo por cuota</label>
+        <input id="comp_cost" type="number" min="0" step="0.01" />
+      </div>
+      <div>
+        <label>Computación - Número de pagos</label>
+        <input id="comp_payments" type="number" min="1" step="1" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Belleza - Costo por cuota</label>
+        <input id="belle_cost" type="number" min="0" step="0.01" />
+      </div>
+      <div>
+        <label>Belleza - Número de pagos</label>
+        <input id="belle_payments" type="number" min="1" step="1" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Inglés - Costo por cuota</label>
+        <input id="ingles_cost" type="number" min="0" step="0.01" />
+      </div>
+      <div>
+        <label>Inglés - Número de pagos</label>
+        <input id="ingles_payments" type="number" min="1" step="1" />
+      </div>
+    </div>
+
+    <button class="btn" onclick="guardarSettings()">Guardar</button>
+    <div id="status" class="small"></div>
+  </div>
+
+  <div class="container">
+    <h2>Horarios de Clases</h2>
+    <label>Nuevo Horario</label>
+    <input type="text" id="nuevoHorario" placeholder="Ej. LUNES 10 AM - 2 PM" />
+    <button class="btn" onclick="onAgregarHorario()">Agregar Horario</button>
+    <div id="listaHorarios" style="margin-top:20px;"></div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script>
+    async function cargarSettings() {
+      await initIndexedDB();
+      const compCost = await getSetting('computacion_cost') || 0;
+      const compPayments = await getSetting('computacion_payments') || 55;
+      const belleCost = await getSetting('belleza_cost') || 0;
+      const bellePayments = await getSetting('belleza_payments') || 55;
+      const inglesCost = await getSetting('ingles_cost') || 0;
+      const inglesPayments = await getSetting('ingles_payments') || 55;
+
+      document.getElementById('comp_cost').value = compCost;
+      document.getElementById('comp_payments').value = compPayments;
+      document.getElementById('belle_cost').value = belleCost;
+      document.getElementById('belle_payments').value = bellePayments;
+      document.getElementById('ingles_cost').value = inglesCost;
+      document.getElementById('ingles_payments').value = inglesPayments;
+    }
+
+    async function guardarSettings() {
+      const status = document.getElementById('status');
+      try {
+        const compCost = parseFloat(document.getElementById('comp_cost').value) || 0;
+        const compPayments = parseInt(document.getElementById('comp_payments').value) || 55;
+        const belleCost = parseFloat(document.getElementById('belle_cost').value) || 0;
+        const bellePayments = parseInt(document.getElementById('belle_payments').value) || 55;
+        const inglesCost = parseFloat(document.getElementById('ingles_cost').value) || 0;
+        const inglesPayments = parseInt(document.getElementById('ingles_payments').value) || 55;
+
+        await setSetting('computacion_cost', compCost);
+        await setSetting('computacion_payments', compPayments);
+        await setSetting('belleza_cost', belleCost);
+        await setSetting('belleza_payments', bellePayments);
+        await setSetting('ingles_cost', inglesCost);
+        await setSetting('ingles_payments', inglesPayments);
+
+        status.textContent = '✔ Guardado correctamente';
+        status.style.color = 'green';
+      } catch (e) {
+        console.error(e);
+        status.textContent = 'Error guardando: ' + (e.message || e);
+        status.style.color = 'red';
+      }
+    }
+
+    async function mostrarHorarios() {
+      const horarios = await window.cargarHorarios();
+      const lista = document.getElementById('listaHorarios');
+      lista.innerHTML = '';
+      horarios.forEach(h => {
+        const div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        div.style.alignItems = 'center';
+        div.style.padding = '10px';
+        div.style.border = '1px solid #ccc';
+        div.style.marginBottom = '5px';
+        div.innerHTML = `<span>${h.nombre}</span><button onclick="onEliminarHorario(${h.id})">Eliminar</button>`;
+        lista.appendChild(div);
+      });
+    }
+
+    async function onAgregarHorario() {
+      const nombre = document.getElementById('nuevoHorario').value.trim();
+      if (!nombre) return alert('Ingresa un nombre para el horario');
+      try {
+        await window.agregarHorario({ nombre });
+        document.getElementById('nuevoHorario').value = '';
+        mostrarHorarios();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function onEliminarHorario(id) {
+      if (!confirm('Eliminar horario?')) return;
+      try {
+        await window.eliminarHorario(id);
+        mostrarHorarios();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await cargarSettings();
+      await mostrarHorarios();
+    });
+  </script>
+</body>
+</html>

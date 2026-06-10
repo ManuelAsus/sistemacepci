@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ver Materias - CEPCI</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+        }
+
+        .header {
+            background: #8c1936;
+            padding: 15px;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back {
+            background: #CFB53B;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #8c1936;
+            font-weight: bold;
+            border: none;
+        }
+
+        .back:hover {
+            background: white;
+        }
+
+        .container {
+            margin: 30px auto;
+            width: 95%;
+            max-width: 1200px;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 14px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #001f54;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        #filtro {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #8c1936;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .btn-search {
+            padding: 10px 14px;
+            background: #8c1936;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-search:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .materias-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .materia-card {
+            background: #f9f9f9;
+            border: 2px solid #8c1936;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .materia-card h3 {
+            color: #8c1936;
+            margin: 0 0 8px 0;
+            border-bottom: 2px solid #CFB53B;
+            padding-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .materia-info {
+            font-size: 14px;
+            color: #001f54;
+            margin: 4px 0;
+        }
+
+        .materia-label {
+            font-weight: bold;
+            color: #8c1936;
+            margin-right: 6px;
+        }
+
+        .materia-descripcion {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #001f54;
+            max-height: 100px;
+            overflow-y: auto;
+            margin: 8px 0;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .btn-edit {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .btn-edit:hover {
+            background: #b8961f;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #d32f2f;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #b71c1c;
+        }
+
+        .empty {
+            text-align: center;
+            color: #8c1936;
+            font-size: 18px;
+            padding: 40px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #8c1936;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h3 {
+            color: #001f54;
+            margin: 0;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            color: #8c1936;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #CFB53B;
+        }
+
+        label {
+            font-weight: bold;
+            color: #8c1936;
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 5px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #8c1936;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        input:focus, textarea:focus {
+            border-color: #CFB53B;
+            box-shadow: 0 0 6px #CFB53B;
+            outline: none;
+        }
+
+        .modal-btn {
+            width: 100%;
+            padding: 12px;
+            background: #8c1936;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        .modal-btn:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .msg {
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .toolbar { flex-direction: column; }
+            #filtro { width: 100%; }
+        }
+    </style>
+
+    <!-- IndexedDB helper -->
+    <script src="js/db.js"></script>
+
+    <script>
+        if (sessionStorage.getItem("logged") !== "true") {
+            window.location.href = "index.html";
+        }
+
+        let materiaEditandoId = null;
+
+        async function mostrarMaterias() {
+            try {
+                await initIndexedDB();
+                const materias = await cargarMaterias();
+                const container = document.getElementById("materiasContainer");
+
+                if (!materias || materias.length === 0) {
+                    container.innerHTML = '<div class="empty">No hay materias registradas.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                materias.forEach((materia) => {
+                    const card = document.createElement('div');
+                    card.className = 'materia-card';
+                    card.innerHTML = `
+                        <h3>${escapeHtml(materia.nombre)}</h3>
+                        <div class="materia-info">
+                            <span class="materia-label">Código:</span> ${escapeHtml(materia.codigo)}
+                        </div>
+                        <div class="materia-info">
+                            <span class="materia-label">Duración:</span> ${escapeHtml(String(materia.duracion))} clases
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-edit" data-id="${escapeHtml(String(materia.id))}">Editar</button>
+                            <button class="btn btn-delete" data-id="${escapeHtml(String(materia.id))}">Eliminar</button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+
+                    // Editar
+                    const editBtn = card.querySelector('.btn-edit');
+                    editBtn.addEventListener('click', async () => {
+                        await abrirEditar(materia.id);
+                    });
+
+                    // Eliminar
+                    const delBtn = card.querySelector('.btn-delete');
+                    delBtn.addEventListener('click', async () => {
+                        if (confirm("¿Está seguro de que desea eliminar esta materia?")) {
+                            await eliminarMateriaById(materia.id);
+                        }
+                    });
+                });
+            } catch (e) {
+                console.error('Error mostrarMaterias:', e);
+                document.getElementById("materiasContainer").innerHTML = '<div class="empty">Error cargando materias.</div>';
+            }
+        }
+
+        async function abrirEditar(id) {
+            try {
+                await initIndexedDB();
+                const materias = await cargarMaterias();
+                const materia = materias.find(m => m.id === id);
+
+                if (!materia) {
+                    alert('Materia no encontrada.');
+                    return;
+                }
+
+                materiaEditandoId = id;
+
+                document.getElementById("editNombre").value = materia.nombre || '';
+                document.getElementById("editCodigo").value = materia.codigo || '';
+                document.getElementById("editDuracion").value = materia.duracion || '';
+
+                document.getElementById("editModal").style.display = "block";
+                document.getElementById("msgEdit").textContent = '';
+            } catch (e) {
+                console.error('Error abrirEditar:', e);
+                alert('Error al abrir editor: ' + (e.message || e));
+            }
+        }
+
+        function cerrarModal() {
+            document.getElementById("editModal").style.display = "none";
+            materiaEditandoId = null;
+            document.getElementById("msgEdit").textContent = '';
+        }
+
+        async function guardarCambios() {
+            const nombre = document.getElementById("editNombre").value.trim();
+            const codigo = document.getElementById("editCodigo").value.trim();
+            const duracion = document.getElementById("editDuracion").value.trim();
+            const msg = document.getElementById("msgEdit");
+
+            msg.textContent = '';
+
+            if (!nombre || !codigo || !duracion) {
+                msg.style.color = "red";
+                msg.textContent = "Los campos nombre, código y duración son obligatorios.";
+                return;
+            }
+
+            try {
+                await initIndexedDB();
+                const materias = await cargarMaterias();
+                const materia = materias.find(m => m.id === materiaEditandoId);
+
+                if (!materia) {
+                    msg.style.color = "red";
+                    msg.textContent = "Materia no encontrada en la base de datos.";
+                    return;
+                }
+
+                // Actualizar campos
+                materia.nombre = nombre;
+                materia.codigo = codigo;
+                materia.duracion = duracion;
+
+                await actualizarMateria(materia);
+
+                msg.style.color = "green";
+                msg.textContent = "Materia actualizada exitosamente ✔";
+
+                setTimeout(() => {
+                    cerrarModal();
+                    mostrarMaterias();
+                }, 900);
+            } catch (e) {
+                console.error('Error guardarCambios:', e);
+                msg.style.color = "red";
+                msg.textContent = "Error al guardar: " + (e.message || e);
+            }
+        }
+
+        async function eliminarMateriaById(id) {
+            try {
+                await initIndexedDB();
+                await eliminarMateria(id);
+                await mostrarMaterias();
+            } catch (e) {
+                console.error('Error eliminarMateriaById:', e);
+                alert('Error al eliminar: ' + (e.message || e));
+            }
+        }
+
+        function filtrar() {
+            const filtro = document.getElementById("filtro").value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.materia-card');
+
+            cards.forEach(card => {
+                const nombre = card.querySelector('h3').textContent.toLowerCase();
+                const codigo = card.querySelector('.materia-label').nextSibling.textContent.toLowerCase();
+                const mostrar = nombre.includes(filtro) || codigo.includes(filtro);
+                card.style.display = mostrar ? 'flex' : 'none';
+            });
+        }
+
+        function limpiar() {
+            document.getElementById("filtro").value = '';
+            const cards = document.querySelectorAll('.materia-card');
+            cards.forEach(card => card.style.display = 'flex');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            const editModal = document.getElementById("editModal");
+            if (event.target === editModal) {
+                cerrarModal();
+            }
+        }
+
+        // Cargar materias al abrir página
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initIndexedDB();
+            } catch (e) {
+                console.error('Error inicializando IndexedDB:', e);
+            }
+            await mostrarMaterias();
+        });
+    </script>
+</head>
+<body>
+
+    <div class="header">
+        Ver Materias - CEPCI
+        <button class="back" onclick="location.href='dashboard.html'">Regresar</button>
+    </div>
+
+    <div class="container">
+        <h2>Materias Registradas</h2>
+
+        <div class="toolbar">
+            <input id="filtro" type="text" placeholder="Buscar por nombre o código..." />
+            <button class="btn-search" onclick="filtrar()">Buscar</button>
+            <button class="btn-search" onclick="limpiar()">Limpiar</button>
+        </div>
+
+        <div id="materiasContainer" class="materias-list" aria-live="polite"></div>
+    </div>
+
+    <!-- Modal de Edición -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Materia</h3>
+                <span class="close" onclick="cerrarModal()">&times;</span>
+            </div>
+
+            <label>Nombre</label>
+            <input id="editNombre" type="text" />
+
+            <label>Código</label>
+            <input id="editCodigo" type="text" />
+
+
+            <label>Duración (número de clases)</label>
+            <input id="editDuracion" type="number" min="1" />
+
+            <button class="modal-btn" onclick="guardarCambios()">Guardar Cambios</button>
+            <div id="msgEdit" class="msg"></div>
+        </div>
+    </div>
+
+</body>
+</html>

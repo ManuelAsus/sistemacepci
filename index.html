@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inicio de Sesión - CEPCI</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #8c1936, #001f54);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            background: white;
+            width: 360px;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            animation: fadeIn .8s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 {
+            text-align: center;
+            color: #8c1936;
+            margin-bottom: 12px;
+        }
+
+        /* Logo debajo del título */
+        .logo-wrap {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .login-logo {
+            max-width: 220px;
+            height: auto;
+            display: inline-block;
+            border-radius: 8px;
+            box-shadow: 0 6px 18px rgba(140,25,54,0.08);
+        }
+
+        label {
+            font-weight: bold;
+            color: #001f54;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            border: 2px solid #8c1936;
+            border-radius: 10px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        input:focus {
+            border-color: #CFB53B;
+            box-shadow: 0 0 6px #CFB53B;
+        }
+
+        .btn-login {
+            width: 100%;
+            background: #8c1936;
+            color: white;
+            border: none;
+            padding: 12px;
+            margin-top: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: .3s;
+        }
+
+        .btn-login:hover {
+            background: #CFB53B;
+            color: #8c1936;
+        }
+
+        .error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <h2>Sistema CEPCI - Iniciar Sesión</h2>
+
+        <div class="logo-wrap">
+            <img src="img/logocepci.jpg" alt="Logo CEPCI" class="login-logo">
+        </div>
+
+        <label>Usuario:</label>
+        <input type="text" id="username" placeholder="Ingrese su usuario">
+
+        <label style="margin-top:15px;">Contraseña:</label>
+        <input type="password" id="password" placeholder="Ingrese su contraseña">
+
+        <button class="btn-login" onclick="login()">Ingresar</button>
+
+        <p class="error" id="error-msg"></p>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script>
+        async function login() {
+            const user = document.getElementById("username").value.trim();
+            const pass = document.getElementById("password").value.trim();
+            const errorBox = document.getElementById("error-msg");
+
+            console.log("Intentando login con usuario:", user);
+
+            if (!user || !pass) {
+                errorBox.textContent = "Usuario y contraseña requeridos";
+                return;
+            }
+
+            try {
+                console.log("Inicializando IndexedDB...");
+                await initIndexedDB();
+                console.log("IndexedDB inicializado");
+
+                console.log("Verificando usuario por defecto...");
+                await verificarUsuarioPorDefecto();
+                console.log("Usuario por defecto verificado");
+
+                console.log("Obteniendo usuario:", user);
+                let validUser = await obtenerUsuarioLogin(user);
+                console.log("Usuario obtenido:", validUser);
+
+                if (validUser && validUser.password === pass) {
+                    console.log("Login exitoso, redirigiendo a dashboard");
+                    // asegurar que permisos estén definidos y rellenar claves faltantes
+                    if (!validUser.permissions) {
+                        validUser.permissions = {};
+                    }
+                    // backfill cualquier módulo nuevo
+                    let changed = false;
+                    LOGIN_MODULES.forEach(m => {
+                        if (validUser.permissions[m] === undefined) {
+                            validUser.permissions[m] = true;
+                            changed = true;
+                        }
+                    });
+                    if (changed) {
+                        await actualizarUsuarioLogin(validUser);
+                    }
+                    sessionStorage.setItem("logged", "true");
+                    sessionStorage.setItem("usuario", user);
+                    // guardar permisos
+                    sessionStorage.setItem("permissions", JSON.stringify(validUser.permissions));
+                    window.location.href = "dashboard.html";
+                } else {
+                    console.log("Credenciales incorrectas");
+                    errorBox.textContent = "Usuario o contraseña incorrectos";
+                }
+            } catch (e) {
+                console.error("Error en login:", e);
+                errorBox.textContent = "Error al verificar credenciales";
+            }
+        }
+
+        // Permitir login con Enter
+        document.addEventListener('DOMContentLoaded', async () => {
+            const passwordInput = document.getElementById('password');
+            if (passwordInput) {
+                passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        login();
+                    }
+                });
+            }
+            
+            // Inicializar DB y verificar usuario por defecto
+            console.log('Inicializando DB y verificando usuario por defecto...');
+            try {
+                await initIndexedDB();
+                console.log('Base de datos inicializada');
+                
+                await verificarUsuarioPorDefecto();
+                console.log('Usuario por defecto verificado');
+                
+                // Verificar que se guardó
+                const testUser = await obtenerUsuarioLogin('AdminCepci01');
+                console.log('Usuario AdminCepci01 en DB:', testUser);
+                
+            } catch (e) {
+                console.error('Error forzando usuario por defecto:', e);
+            }
+        });
+    </script>
+
+</body>
+</html>
