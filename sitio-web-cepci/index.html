@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema CEPCI - Plataforma Integral de Gestión Escolar y Control Administrativo</title>
+  <meta name="description" content="Plataforma de software offline para Windows de control escolar integral CEPCI. Gestión de alumnos, grupos, cobranza de caja, calificaciones e inventario con total privacidad." />
+  
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="img/app.png" />
+</head>
+<body>
+
+  <!-- ==========================================================================
+       NAVBAR
+       ========================================================================== -->
+  <header class="navbar" id="navbar">
+    <div class="container nav-container">
+      <a href="#" class="brand-link">
+        <img src="img/logocepci.jpg" alt="Logo CEPCI" class="brand-logo-img" />
+        <div class="brand-text-block">
+          <span class="brand-title">Sistema CEPCI</span>
+          <span class="brand-subtitle">Gestión Escolar &bull; Versión 2026</span>
+        </div>
+      </a>
+
+      <nav>
+        <ul class="nav-menu">
+          <li><a href="#inicio" class="nav-link active">Inicio</a></li>
+          <li><a href="#credenciales" class="nav-link">Credenciales & Atajos</a></li>
+          <li><a href="#demostracion" class="nav-link">Demo de Módulos</a></li>
+          <li><a href="#galeria" class="nav-link">Galería Real</a></li>
+          <li><a href="#modulos" class="nav-link">16 Módulos</a></li>
+          <li><a href="#arquitectura" class="nav-link">Seguridad</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-cta">
+        <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-primary">
+          <i class="fa-solid fa-cloud-arrow-down"></i> Descargar Sistema
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       HERO SECTION
+       ========================================================================== -->
+  <section class="hero" id="inicio">
+    <div class="container hero-grid">
+      <div class="hero-content">
+        <div class="hero-badge-pill">
+          <span class="dot"></span>
+          <span>Plataforma Desktop Local para Windows &bull; 100% Offline</span>
+        </div>
+
+        <h1 class="hero-title">
+          Control Total, Financiero y Académico con el <span class="highlight-gold">Sistema CEPCI</span>
+        </h1>
+
+        <p class="hero-desc">
+          Software ejecutivo diseñado exclusivamente para la administración institucional de CEPCI. Automatiza inscripciones, expedientes de alumnos, cobranza con caja diaria, avance de grupos por turnos y calificaciones, sin depender de internet ni pagar mensualidades.
+        </p>
+
+        <div class="hero-actions">
+          <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-gold">
+            <i class="fa-brands fa-windows"></i> Descargar Instalador Oficial (.exe)
+          </a>
+          <a href="#credenciales" class="btn-secondary">
+            <i class="fa-solid fa-key"></i> Ver Credenciales de Acceso
+          </a>
+        </div>
+
+        <div class="hero-metrics-strip">
+          <div class="metric-item">
+            <div class="metric-number"><span data-counter="16">16</span><span>+</span></div>
+            <div class="metric-label">Módulos Especializados</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-number"><span>100</span><span>%</span></div>
+            <div class="metric-label">Privacidad &bull; Sin Servidores Externos</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-number"><span>0</span><span>ms</span></div>
+            <div class="metric-label">Latencia de Red (Motor Local)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="hero-image-wrapper" data-lightbox data-lightbox-src="img/real_dashboard.png" data-lightbox-caption="Panel Administrativo CEPCI - Captura Real del Software con los 19 Apartados Operativos">
+          <img src="img/real_dashboard.png" alt="Panel Administrativo Real del Sistema CEPCI" />
+          
+          <div class="floating-badge badge-top-right">
+            <div class="badge-icon gold-icon">
+              <i class="fa-solid fa-cash-register"></i>
+            </div>
+            <div>
+              <div class="badge-info-title">Caja Diaria Auditada</div>
+              <div class="badge-info-sub">Arqueo y Foliado Activo</div>
+            </div>
+          </div>
+
+          <div class="floating-badge badge-bottom-left">
+            <div class="badge-icon">
+              <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <div>
+              <div class="badge-info-title">Control de Grupos</div>
+              <div class="badge-info-sub">Avance Curricular Dinámico</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       CREDENTIALS & MASTER ACCESS SECTION
+       ========================================================================== -->
+  <section class="credentials-section" id="credenciales">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Acceso Oficial Autorizado</span>
+        <h2 class="section-title">Credenciales Maestras y Atajos del Sistema</h2>
+        <p class="section-desc">
+          Datos de acceso por defecto para operadores, directores y personal técnico autorizado. Utiliza los botones de copiado rápido para ingresarlos en el sistema.
+        </p>
+      </div>
+
+      <div class="cred-grid">
+        
+        <!-- Tarjeta 1: Login del Sistema -->
+        <div class="cred-card featured">
+          <div class="cred-card-header">
+            <div class="cred-icon-box">
+              <i class="fa-solid fa-door-open"></i>
+            </div>
+            <div>
+              <span class="cred-tag">Pantalla Inicial (index.html)</span>
+              <h3 class="cred-title">Inicio de Sesión Principal</h3>
+            </div>
+          </div>
+          <p class="cred-desc">
+            Credenciales maestras para ingresar a la plataforma y desbloquear todos los módulos operativos y académicos.
+          </p>
+          <div class="cred-fields-list">
+            <div class="cred-field-row">
+              <div class="cred-label-group">
+                <span class="cred-field-label">Usuario</span>
+                <span class="cred-field-val highlight">AdminCepci01</span>
+              </div>
+              <button class="copy-btn" data-copy="AdminCepci01" title="Copiar usuario">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+            </div>
+            <div class="cred-field-row">
+              <div class="cred-label-group">
+                <span class="cred-field-label">Contraseña</span>
+                <span class="cred-field-val">AdministracionCepci</span>
+              </div>
+              <button class="copy-btn" data-copy="AdministracionCepci" title="Copiar contraseña">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarjeta 2: Panel Administrador / Otros -->
+        <div class="cred-card">
+          <div class="cred-card-header">
+            <div class="cred-icon-box">
+              <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div>
+              <span class="cred-tag">Ajustes & Permisos</span>
+              <h3 class="cred-title">Acceso de Administrador</h3>
+            </div>
+          </div>
+          <p class="cred-desc">
+            Contraseña requerida al hacer clic en <strong>"Administrador"</strong> u <strong>"Otros Apartados"</strong> para gestionar usuarios y permisos del personal.
+          </p>
+          <div class="cred-fields-list">
+            <div class="cred-field-row">
+              <div class="cred-label-group">
+                <span class="cred-field-label">Contraseña por Defecto</span>
+                <span class="cred-field-val highlight">CepciAdministracion01CEPCI</span>
+              </div>
+              <button class="copy-btn" data-copy="CepciAdministracion01CEPCI" title="Copiar clave de administrador">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarjeta 3: Atajo Secreto Modo Restringido -->
+        <div class="cred-card">
+          <div class="cred-card-header">
+            <div class="cred-icon-box">
+              <i class="fa-solid fa-user-secret"></i>
+            </div>
+            <div>
+              <span class="cred-tag">Combinación Oculta</span>
+              <h3 class="cred-title">Modo Restringido Secreto</h3>
+            </div>
+          </div>
+          <p class="cred-desc">
+            Módulo confidencial de cambio de contraseñas de alta seguridad. No existe ningún botón en pantalla para entrar; se activa mediante combinación física de teclado:
+          </p>
+          <div class="key-combo-wrapper">
+            <div class="key-step">
+              <span>1. Mantener presionada la tecla:</span>
+              <kbd class="key-kbd">Alt</kbd>
+            </div>
+            <div class="key-step">
+              <span>2. Mientras se mantiene presionada, escribir:</span>
+              <div class="key-sequence">
+                <kbd class="key-kbd small">c</kbd>
+                <kbd class="key-kbd small">e</kbd>
+                <kbd class="key-kbd small">p</kbd>
+                <kbd class="key-kbd small">c</kbd>
+                <kbd class="key-kbd small">i</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       INTERACTIVE LIVE DEMO TABS (WITH REAL SCREENSHOTS)
+       ========================================================================== -->
+  <section class="section" id="demostracion">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Demostración con Capturas Reales</span>
+        <h2 class="section-title">Flujo Operativo Real del Software</h2>
+        <p class="section-desc">
+          Explora capturas reales tomadas directamente de las pantallas de producción del Sistema CEPCI ejecutándose en Windows.
+        </p>
+      </div>
+
+      <div class="interactive-demo-card">
+        <!-- Tab Navigation Buttons -->
+        <div class="demo-tabs-nav">
+          <button class="demo-tab-btn active" data-tab="tab-alumnos">
+            <i class="fa-solid fa-user-graduate"></i> Expediente de Alumnos
+          </button>
+          <button class="demo-tab-btn" data-tab="tab-caja">
+            <i class="fa-solid fa-vault"></i> Caja y Cobranza
+          </button>
+          <button class="demo-tab-btn" data-tab="tab-grupos">
+            <i class="fa-solid fa-users-rectangle"></i> Grupos y Turnos
+          </button>
+          <button class="demo-tab-btn" data-tab="tab-calificaciones">
+            <i class="fa-solid fa-chart-line"></i> Calificaciones y Boletas
+          </button>
+          <button class="demo-tab-btn" data-tab="tab-admin">
+            <i class="fa-solid fa-users-gear"></i> Usuarios y Permisos
+          </button>
+          <button class="demo-tab-btn" data-tab="tab-restringido">
+            <i class="fa-solid fa-lock"></i> Modo Restringido
+          </button>
+        </div>
+
+        <!-- Tab 1: Alumnos -->
+        <div class="demo-tab-content active" id="tab-alumnos">
+          <div class="demo-panel-grid">
+            <div class="demo-info">
+              <h3>Expediente Escolar Digital y Matrícula Inteligente</h3>
+              <p>
+                El módulo de alumnos permite consultar la lista completa, filtrar por alumnos activos o con baja temporal, y realizar búsquedas instantáneas por nombre, código o matrícula institucional.
+              </p>
+              <ul class="demo-feature-list">
+                <li><i class="fa-solid fa-check"></i> <strong>Búsqueda Instantánea:</strong> Localiza alumnos al teclear su nombre, código o matrícula en milisegundos.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Filtros por Estado:</strong> Ver todos, solo activos o alumnos con baja temporal con un clic.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Cálculo Automático de Edad:</strong> Determinación exacta de años cumplidos a partir de la fecha de nacimiento.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Asignación de Matrícula:</strong> Generación secuencial automática sin duplicidad.</li>
+              </ul>
+              <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                <i class="fa-solid fa-download"></i> Descargar Software
+              </a>
+            </div>
+
+            <div class="demo-screen-frame">
+              <div class="frame-top-bar">
+                <div class="frame-dots"><span></span><span></span><span></span></div>
+                <div class="frame-title">veralumnos.html &bull; Directorio de Alumnos CEPCI</div>
+                <div class="frame-badge"><i class="fa-solid fa-camera"></i> Captura Real</div>
+              </div>
+              <div class="demo-real-img-wrap" data-lightbox data-lightbox-src="img/real_alumnos.png" data-lightbox-caption="veralumnos.html - Lista y Buscador de Alumnos Registrados">
+                <img src="img/real_alumnos.png" alt="Captura real del módulo de consulta de alumnos" class="demo-real-img" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Caja -->
+        <div class="demo-tab-content" id="tab-caja">
+          <div class="demo-panel-grid">
+            <div class="demo-info">
+              <h3>Control Financiero y Arqueo Diario de Caja</h3>
+              <p>
+                Apertura formal de sesión de caja registrando el usuario, fecha y hora exacta de apertura. Evita cobros no registrados y garantiza transparencia financiera total para la institución.
+              </p>
+              <ul class="demo-feature-list">
+                <li><i class="fa-solid fa-check"></i> <strong>Apertura Auditada:</strong> Registro con fecha y hora oficial del sistema.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Historial de Cajas:</strong> Registro histórico de cortes de turno y recaudaciones previas.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Cobranza de Colegiaturas:</strong> Vínculo directo con tarifas y estados de cuenta.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Seguridad en Cierre:</strong> Impide alteraciones posteriores una vez efectuado el corte.</li>
+              </ul>
+              <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                <i class="fa-solid fa-download"></i> Descargar Software
+              </a>
+            </div>
+
+            <div class="demo-screen-frame">
+              <div class="frame-top-bar">
+                <div class="frame-dots"><span></span><span></span><span></span></div>
+                <div class="frame-title">caja.html &bull; Módulo de Recepción y Finanzas</div>
+                <div class="frame-badge"><i class="fa-solid fa-camera"></i> Captura Real</div>
+              </div>
+              <div class="demo-real-img-wrap" data-lightbox data-lightbox-src="img/real_caja.png" data-lightbox-caption="caja.html - Inicio de Sesión y Control de Caja Registradora">
+                <img src="img/real_caja.png" alt="Captura real del módulo de apertura de caja" class="demo-real-img" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Grupos -->
+        <div class="demo-tab-content" id="tab-grupos">
+          <div class="demo-panel-grid">
+            <div class="demo-info">
+              <h3>Administración de Grupos, Turnos y Docentes</h3>
+              <p>
+                Creación y estructuración de grupos asignando nombre distintivo, turno escolar, fecha de inicio, maestro titular, materia correspondiente y selección de alumnos filtrados por su horario.
+              </p>
+              <ul class="demo-feature-list">
+                <li><i class="fa-solid fa-check"></i> <strong>Filtro por Horario:</strong> Muestra únicamente a los alumnos disponibles para el turno seleccionado.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Sincronizador de Contador:</strong> Actualiza las sesiones transcurridas para medir el avance del plan.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Vinculación Docente:</strong> Asignación clara del profesor responsable por grupo.</li>
+              </ul>
+              <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                <i class="fa-solid fa-download"></i> Descargar Software
+              </a>
+            </div>
+
+            <div class="demo-screen-frame">
+              <div class="frame-top-bar">
+                <div class="frame-dots"><span></span><span></span><span></span></div>
+                <div class="frame-title">grupos.html &bull; Crear y Administrar Grupos</div>
+                <div class="frame-badge"><i class="fa-solid fa-camera"></i> Captura Real</div>
+              </div>
+              <div class="demo-real-img-wrap" data-lightbox data-lightbox-src="img/real_grupos.png" data-lightbox-caption="grupos.html - Creador y Administrador de Grupos Escolares">
+                <img src="img/real_grupos.png" alt="Captura real del módulo de grupos" class="demo-real-img" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Calificaciones -->
+        <div class="demo-tab-content" id="tab-calificaciones">
+          <div class="demo-panel-grid">
+            <div class="demo-info">
+              <h3>Calificaciones, Boletas y Exportación a PDF</h3>
+              <p>
+                Captura de notas y evaluaciones por grupo con vista previa instantánea, descarga directa en imagen y generación de boletas oficiales en formato PDF.
+              </p>
+              <ul class="demo-feature-list">
+                <li><i class="fa-solid fa-check"></i> <strong>Carga Rápida de Grupo:</strong> Visualiza a todos los integrantes matriculados al instante.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Exportación PDF:</strong> Boletas y actas de examen listas para imprimir o enviar.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Descarga en Imagen:</strong> Guarda reportes visuales en formato PNG con 1 clic.</li>
+              </ul>
+              <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                <i class="fa-solid fa-download"></i> Descargar Software
+              </a>
+            </div>
+
+            <div class="demo-screen-frame">
+              <div class="frame-top-bar">
+                <div class="frame-dots"><span></span><span></span><span></span></div>
+                <div class="frame-title">calificaciones.html &bull; Kardex y Boletas</div>
+                <div class="frame-badge"><i class="fa-solid fa-camera"></i> Captura Real</div>
+              </div>
+              <div class="demo-real-img-wrap" data-lightbox data-lightbox-src="img/real_calificaciones.png" data-lightbox-caption="calificaciones.html - Calificaciones con Exportación a PDF e Imagen">
+                <img src="img/real_calificaciones.png" alt="Captura real del módulo de calificaciones" class="demo-real-img" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Admin / Permisos -->
+        <div class="demo-tab-content" id="tab-admin">
+          <div class="demo-panel-grid">
+            <div class="demo-info">
+              <h3>Gestión de Usuarios y Permisos Granulares</h3>
+              <p>
+                Permite crear cuentas para operadores de caja y usuarios del login principal, asignando exactamente a qué módulos tienen acceso y cuáles quedan ocultos.
+              </p>
+              <ul class="demo-feature-list">
+                <li><i class="fa-solid fa-check"></i> <strong>Usuarios para Caja:</strong> Control individual de operadores con permiso opcional para reabrir caja.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Permisos Selectivos:</strong> Restringe el acceso a finanzas o configuración para recepcionistas.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Protección Maestra:</strong> Módulo protegido con la clave <code>CepciAdministracion01CEPCI</code>.</li>
+              </ul>
+              <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                <i class="fa-solid fa-download"></i> Descargar Software
+              </a>
+            </div>
+
+            <div class="demo-screen-frame">
+              <div class="frame-top-bar">
+                <div class="frame-dots"><span></span><span></span><span></span></div>
+                <div class="frame-title">administrador.html &bull; Gestión de Usuarios</div>
+                <div class="frame-badge"><i class="fa-solid fa-camera"></i> Captura Real</div>
+              </div>
+              <div class="demo-real-img-wrap" data-lightbox data-lightbox-src="img/real_admin.png" data-lightbox-caption="administrador.html - Panel de Gestión de Usuarios y Permisos">
+                <img src="img/real_admin.png" alt="Captura real de administración de usuarios" class="demo-real-img" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 6: Modo Restringido -->
+        <div class="demo-tab-content" id="tab-restringido">
+          <div class="demo-panel-grid">
+            <div class="demo-info">
+              <h3>Área Restringida &bull; Gestión de Seguridad</h3>
+              <p>
+                Pantalla exclusiva para el cambio y renovación de la contraseña maestra del administrador. Solo se puede ingresar ejecutando el atajo secreto físico en el teclado.
+              </p>
+              <ul class="demo-feature-list">
+                <li><i class="fa-solid fa-check"></i> <strong>Atajo Invisible:</strong> Mantener presionado <kbd class="key-kbd">Alt</kbd> y teclear <kbd class="key-kbd small">cepci</kbd>.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Verificación Cruzada:</strong> Requiere la contraseña actual antes de registrar la nueva clave.</li>
+                <li><i class="fa-solid fa-check"></i> <strong>Cero Brechas:</strong> Sin botones en menús ni hipervínculos visibles para extraños.</li>
+              </ul>
+              <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                <i class="fa-solid fa-download"></i> Descargar Software
+              </a>
+            </div>
+
+            <div class="demo-screen-frame">
+              <div class="frame-top-bar">
+                <div class="frame-dots"><span></span><span></span><span></span></div>
+                <div class="frame-title">acceso-restringido.html &bull; Seguridad Secreta</div>
+                <div class="frame-badge"><i class="fa-solid fa-camera"></i> Captura Real</div>
+              </div>
+              <div class="demo-real-img-wrap" data-lightbox data-lightbox-src="img/real_restringido.png" data-lightbox-caption="acceso-restringido.html - Área Restringida y Cambio de Contraseña de Administrador">
+                <img src="img/real_restringido.png" alt="Captura real de acceso restringido" class="demo-real-img" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       REAL SCREENSHOTS GALLERY
+       ========================================================================== -->
+  <section class="gallery-section" id="galeria">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Galería de Pantallas Reales</span>
+        <h2 class="section-title">Galería Oficial del Sistema CEPCI</h2>
+        <p class="section-desc">
+          Haz clic en cualquier pantalla para verla en pantalla completa en alta definición tal como se muestra en la aplicación de escritorio.
+        </p>
+      </div>
+
+      <div class="gallery-grid">
+        
+        <!-- Item 1: Login -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_login.png" data-lightbox-caption="index.html - Pantalla Oficial de Inicio de Sesión">
+          <div class="gallery-img-wrap">
+            <img src="img/real_login.png" alt="Login del Sistema CEPCI" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Inicio de Sesión</h4>
+            <p class="gallery-desc">Portal seguro con logotipo institucional y validación de contraseñas maestras.</p>
+          </div>
+        </div>
+
+        <!-- Item 2: Dashboard -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_dashboard.png" data-lightbox-caption="dashboard.html - Panel Administrativo General con 19 Módulos">
+          <div class="gallery-img-wrap">
+            <img src="img/real_dashboard.png" alt="Panel Administrativo General" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Panel Administrativo</h4>
+            <p class="gallery-desc">Menú ejecutivo con tarjetas interactivas de acceso directo a todos los departamentos.</p>
+          </div>
+        </div>
+
+        <!-- Item 3: Registro de Alumnos -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_registro.png" data-lightbox-caption="registroalumnos.html - Formulario de Alta de Alumnos">
+          <div class="gallery-img-wrap">
+            <img src="img/real_registro.png" alt="Registro de Alumnos" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Registro de Alumnos</h4>
+            <p class="gallery-desc">Captura de aspirantes, fotografía, cálculo automático de edad y matrícula consecutiva.</p>
+          </div>
+        </div>
+
+        <!-- Item 4: Directorio de Alumnos -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_alumnos.png" data-lightbox-caption="veralumnos.html - Directorio y Buscador de Alumnos">
+          <div class="gallery-img-wrap">
+            <img src="img/real_alumnos.png" alt="Directorio de Alumnos" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Directorio de Alumnos</h4>
+            <p class="gallery-desc">Búsqueda rápida por nombre o código, filtrado de bajas y edición de expedientes.</p>
+          </div>
+        </div>
+
+        <!-- Item 5: Caja -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_caja.png" data-lightbox-caption="caja.html - Apertura y Control de Caja">
+          <div class="gallery-img-wrap">
+            <img src="img/real_caja.png" alt="Control de Caja" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Control de Caja</h4>
+            <p class="gallery-desc">Apertura con fondo inicial, hora auditada y registro de cortes financieros.</p>
+          </div>
+        </div>
+
+        <!-- Item 6: Grupos -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_grupos.png" data-lightbox-caption="grupos.html - Creador de Grupos y Turnos">
+          <div class="gallery-img-wrap">
+            <img src="img/real_grupos.png" alt="Gestor de Grupos" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Grupos y Turnos</h4>
+            <p class="gallery-desc">Asignación de profesores, horarios y sincronizador de sesiones transcurridas.</p>
+          </div>
+        </div>
+
+        <!-- Item 7: Calificaciones -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_calificaciones.png" data-lightbox-caption="calificaciones.html - Calificaciones y Boletas">
+          <div class="gallery-img-wrap">
+            <img src="img/real_calificaciones.png" alt="Calificaciones" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Calificaciones y Boletas</h4>
+            <p class="gallery-desc">Cálculo de promedios con exportación directa en formato PDF o imagen.</p>
+          </div>
+        </div>
+
+        <!-- Item 8: Usuarios y Permisos -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_admin.png" data-lightbox-caption="administrador.html - Usuarios y Permisos Modulares">
+          <div class="gallery-img-wrap">
+            <img src="img/real_admin.png" alt="Gestión de Usuarios y Permisos" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Usuarios y Permisos</h4>
+            <p class="gallery-desc">Panel directivo para otorgar o revocar accesos modulares a los empleados.</p>
+          </div>
+        </div>
+
+        <!-- Item 9: Modo Restringido -->
+        <div class="gallery-item" data-lightbox data-lightbox-src="img/real_restringido.png" data-lightbox-caption="acceso-restringido.html - Área Restringida Secreta">
+          <div class="gallery-img-wrap">
+            <img src="img/real_restringido.png" alt="Área Restringida Secreta" />
+            <div class="gallery-overlay">
+              <span class="gallery-badge"><i class="fa-solid fa-expand"></i> Ver HD</span>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <h4 class="gallery-title">Área Restringida</h4>
+            <p class="gallery-desc">Módulo oculto de máxima seguridad activado con la combinación <kbd>Alt</kbd> + <kbd>cepci</kbd>.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       ALL 16 MODULES CATALOG
+       ========================================================================== -->
+  <section class="section" id="modulos" style="background: var(--bg-dark-1);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Arquitectura Completa</span>
+        <h2 class="section-title">Los 16 Módulos del Ecosistema CEPCI</h2>
+        <p class="section-desc">
+          Cada departamento institucional cuenta con una herramienta especializada para su labor diaria.
+        </p>
+      </div>
+
+      <!-- Filters -->
+      <div class="modules-filter-bar">
+        <button class="filter-btn active" data-category="all">Todos los Módulos (16)</button>
+        <button class="filter-btn" data-category="academico">Académico &bull; Alumnos</button>
+        <button class="filter-btn" data-category="financiero">Finanzas &bull; Caja</button>
+        <button class="filter-btn" data-category="operativo">Operación &bull; Docentes</button>
+        <button class="filter-btn" data-category="seguridad">Seguridad &bull; Respaldo</button>
+      </div>
+
+      <!-- Grid -->
+      <div class="modules-grid">
+        
+        <!-- Module 1 -->
+        <div class="module-card" data-category="academico">
+          <div class="module-icon-box"><i class="fa-solid fa-user-plus"></i></div>
+          <span class="module-category-tag">Académico</span>
+          <h3 class="module-card-title">Registro de Alumnos</h3>
+          <p class="module-card-desc">Alta de nuevos aspirantes con captura de foto, matrícula automática, selección de turno y asignación de tutor legal.</p>
+        </div>
+
+        <!-- Module 2 -->
+        <div class="module-card" data-category="academico">
+          <div class="module-icon-box"><i class="fa-solid fa-address-book"></i></div>
+          <span class="module-category-tag">Académico</span>
+          <h3 class="module-card-title">Directorio de Alumnos</h3>
+          <p class="module-card-desc">Expediente centralizado con buscador interactivo, edición de datos, control de adeudos y cambio de estatus activo/baja.</p>
+        </div>
+
+        <!-- Module 3 -->
+        <div class="module-card" data-category="operativo">
+          <div class="module-icon-box"><i class="fa-solid fa-chalkboard-user"></i></div>
+          <span class="module-category-tag">Operativo</span>
+          <h3 class="module-card-title">Maestros y Plantilla</h3>
+          <p class="module-card-desc">Gestión del cuerpo docente, especialidades, asignaciones a grupos y control de honorarios por hora clase.</p>
+        </div>
+
+        <!-- Module 4 -->
+        <div class="module-card" data-category="operativo">
+          <div class="module-icon-box"><i class="fa-solid fa-book-bookmark"></i></div>
+          <span class="module-category-tag">Operativo</span>
+          <h3 class="module-card-title">Materias y Planes</h3>
+          <p class="module-card-desc">Catálogo de materias curriculares con definición de cantidad de sesiones programadas para el ciclo.</p>
+        </div>
+
+        <!-- Module 5 -->
+        <div class="module-card" data-category="operativo">
+          <div class="module-icon-box"><i class="fa-solid fa-user-tie"></i></div>
+          <span class="module-category-tag">Operativo</span>
+          <h3 class="module-card-title">Asesores Educativos</h3>
+          <p class="module-card-desc">Registro y seguimiento de asesores de inscripción, metas cumplidas y comisiones generadas por matrícula.</p>
+        </div>
+
+        <!-- Module 6 -->
+        <div class="module-card" data-category="academico">
+          <div class="module-icon-box"><i class="fa-solid fa-people-group"></i></div>
+          <span class="module-category-tag">Académico</span>
+          <h3 class="module-card-title">Grupos y Turnos</h3>
+          <p class="module-card-desc">Configuración de grupos por horario, vinculación de profesor, medidor de avance y asignación fluida de estudiantes.</p>
+        </div>
+
+        <!-- Module 7 -->
+        <div class="module-card" data-category="academico">
+          <div class="module-icon-box"><i class="fa-solid fa-chart-simple"></i></div>
+          <span class="module-category-tag">Académico</span>
+          <h3 class="module-card-title">Calificaciones</h3>
+          <p class="module-card-desc">Captura de notas parciales y finales con ponderación matemática automática y boletas individuales de desempeño.</p>
+        </div>
+
+        <!-- Module 8 -->
+        <div class="module-card" data-category="financiero">
+          <div class="module-icon-box"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+          <span class="module-category-tag">Financiero</span>
+          <h3 class="module-card-title">Cobranza y Pagos</h3>
+          <p class="module-card-desc">Recepción de colegiaturas, recargos por mora, expedición de comprobantes oficiales y calendario de vencimientos.</p>
+        </div>
+
+        <!-- Module 9 -->
+        <div class="module-card" data-category="financiero">
+          <div class="module-icon-box"><i class="fa-solid fa-cash-register"></i></div>
+          <span class="module-category-tag">Financiero</span>
+          <h3 class="module-card-title">Caja Diaria</h3>
+          <p class="module-card-desc">Arqueo de turnos, apertura con fondo base, entradas/salidas en efectivo y corte auditado con firma de cajero.</p>
+        </div>
+
+        <!-- Module 10 -->
+        <div class="module-card" data-category="financiero">
+          <div class="module-icon-box"><i class="fa-solid fa-tags"></i></div>
+          <span class="module-category-tag">Financiero</span>
+          <h3 class="module-card-title">Definir Costos y Tarifas</h3>
+          <p class="module-card-desc">Configuración centralizada de precios de colegiaturas, inscripciones, exámenes extraordinarios y promociones.</p>
+        </div>
+
+        <!-- Module 11 -->
+        <div class="module-card" data-category="operativo">
+          <div class="module-icon-box"><i class="fa-solid fa-boxes-stacked"></i></div>
+          <span class="module-category-tag">Operativo</span>
+          <h3 class="module-card-title">Inventario Escolar</h3>
+          <p class="module-card-desc">Control de stock de uniformes, manuales, libros y souvenirs institucionales con alertas de existencia mínima.</p>
+        </div>
+
+        <!-- Module 12 -->
+        <div class="module-card" data-category="academico">
+          <div class="module-icon-box"><i class="fa-solid fa-list-check"></i></div>
+          <span class="module-category-tag">Académico</span>
+          <h3 class="module-card-title">Listas de Asistencia</h3>
+          <p class="module-card-desc">Formatos imprimibles y digitales para el pase de lista de los docentes en cada uno de los turnos programados.</p>
+        </div>
+
+        <!-- Module 13 -->
+        <div class="module-card" data-category="seguridad">
+          <div class="module-icon-box"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+          <span class="module-category-tag">Seguridad</span>
+          <h3 class="module-card-title">Copia de Seguridad</h3>
+          <p class="module-card-desc">Exportación íntegra de la base de datos a un archivo JSON transportable en memorias USB con fecha y hora.</p>
+        </div>
+
+        <!-- Module 14 -->
+        <div class="module-card" data-category="seguridad">
+          <div class="module-icon-box"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+          <span class="module-category-tag">Seguridad</span>
+          <h3 class="module-card-title">Importar y Restaurar</h3>
+          <p class="module-card-desc">Restauración de base de datos con reemplazo atómico y reinicio automático instantáneo de la aplicación.</p>
+        </div>
+
+        <!-- Module 15 -->
+        <div class="module-card" data-category="seguridad">
+          <div class="module-icon-box"><i class="fa-solid fa-users-gear"></i></div>
+          <span class="module-category-tag">Seguridad</span>
+          <h3 class="module-card-title">Usuarios y Permisos</h3>
+          <p class="module-card-desc">Administración de credenciales de colaboradores con restricción modular selectiva para mayor confidencialidad.</p>
+        </div>
+
+        <!-- Module 16 -->
+        <div class="module-card" data-category="operativo">
+          <div class="module-icon-box"><i class="fa-solid fa-circle-info"></i></div>
+          <span class="module-category-tag">Operativo</span>
+          <h3 class="module-card-title">Información Institucional</h3>
+          <p class="module-card-desc">Directorio de planteles, teléfonos de contacto, soporte técnico y datos oficiales del consorcio CEPCI.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       KEY ADVANTAGES (POR QUÉ CEPCI)
+       ========================================================================== -->
+  <section class="section" id="ventajas">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Ventajas Competitivas</span>
+        <h2 class="section-title">Diseñado para la Realidad Escolar Actual</h2>
+        <p class="section-desc">
+          A diferencia de los sistemas basados en web que sufren caídas de internet o cobran rentas mensuales permanentes, Sistema CEPCI ofrece independencia tecnológica total.
+        </p>
+      </div>
+
+      <div class="pillars-grid">
+        <div class="pillar-card">
+          <div class="pillar-number">01</div>
+          <h3 class="pillar-title">100% Offline y Autónomo</h3>
+          <p class="pillar-desc">
+            No requiere conexión a internet para operar. La escuela puede cobrar, registrar alumnos y emitir recibos incluso durante cortes de red o tormentas.
+          </p>
+        </div>
+
+        <div class="pillar-card">
+          <div class="pillar-number">02</div>
+          <h3 class="pillar-title">Sin Suscripciones Mensuales</h3>
+          <p class="pillar-desc">
+            El software y la base de datos pertenecen en su totalidad a CEPCI. Sin costos ocultos por usuario ni pagos recurrentes a proveedores de nube externos.
+          </p>
+        </div>
+
+        <div class="pillar-card">
+          <div class="pillar-number">03</div>
+          <h3 class="pillar-title">Respaldo Inteligente y Relaunch</h3>
+          <p class="pillar-desc">
+            Muda el sistema de una computadora a otra en cuestión de segundos. El instalador crea los accesos directos y los respaldos JSON se restauran solos.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       ARCHITECTURE & SECURITY (REAL SCREENS EXHIBIT)
+       ========================================================================== -->
+  <section class="section" id="arquitectura" style="padding-top:20px;">
+    <div class="container">
+      <div class="architecture-box">
+        <div>
+          <span class="section-badge">Arquitectura de Ingeniería</span>
+          <h2 style="font-size: 2.2rem; margin-bottom: 16px;">Infraestructura Segura, Rápida y Local</h2>
+          <p style="color:var(--text-muted); line-height: 1.7; margin-bottom: 25px;">
+            El software fue construido combinando tecnologías de nivel industrial para garantizar que los datos nunca salgan del equipo físico de la escuela y se ejecuten con aceleración por hardware.
+          </p>
+          <div data-lightbox data-lightbox-src="img/real_login.png" data-lightbox-caption="Pantalla de Autenticación Oficial del Sistema CEPCI" style="cursor:zoom-in;">
+            <img src="img/real_login.png" alt="Pantalla de Autenticación Oficial" style="border-radius:14px; border:1px solid var(--border-gold-subtle); box-shadow:0 12px 30px rgba(0,0,0,0.6);" />
+          </div>
+        </div>
+
+        <div class="arch-points">
+          <div class="arch-point-item">
+            <div class="icon"><i class="fa-solid fa-microchip"></i></div>
+            <div class="arch-point-text">
+              <h4>Motor Nativo Electron &bull; Chromium 64-bit</h4>
+              <p>Rendimiento acelerado por tarjeta gráfica con consumo de memoria sumamente optimizado y arranque instantáneo.</p>
+            </div>
+          </div>
+
+          <div class="arch-point-item">
+            <div class="icon"><i class="fa-solid fa-database"></i></div>
+            <div class="arch-point-text">
+              <h4>Base de Datos Local IndexedDB Transaccional</h4>
+              <p>Capacidad de almacenamiento para decenas de miles de registros y fotografías de alumnos sin degradación de velocidad.</p>
+            </div>
+          </div>
+
+          <div class="arch-point-item">
+            <div class="icon"><i class="fa-solid fa-key"></i></div>
+            <div class="arch-point-text">
+              <h4>Gestión de Roles y Permisos Granulares</h4>
+              <p>Control estricto de accesos para cajeros, maestros y directores, evitando accesos no autorizados a finanzas.</p>
+            </div>
+          </div>
+
+          <div class="arch-point-item">
+            <div class="icon"><i class="fa-solid fa-shield-virus"></i></div>
+            <div class="arch-point-text">
+              <h4>Sin Riesgo de Ciberataques Externos</h4>
+              <p>Al no tener puertos abiertos a internet ni servidores expuestos, los expedientes de los alumnos están blindados físicamente.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       CALL TO ACTION / DOWNLOAD (GOOGLE DRIVE LINK)
+       ========================================================================== -->
+  <section class="cta-section" id="descarga">
+    <div class="container">
+      <div class="cta-container-card">
+        <span class="section-badge">Distribución Oficial para Windows</span>
+        <h2 class="cta-title">Descarga el Instalador del Sistema CEPCI</h2>
+        <p class="cta-desc">
+          Obtén el paquete ejecutable oficial alojado en Google Drive. Compatible con Windows 10 y Windows 11 (64 bits). Instalación automatizada con un solo clic.
+        </p>
+
+        <div class="cta-buttons">
+          <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="btn-gold">
+            <i class="fa-brands fa-google-drive"></i> Descargar desde Google Drive
+          </a>
+          <a href="#credenciales" class="btn-secondary">
+            <i class="fa-solid fa-key"></i> Ver Credenciales Maestras
+          </a>
+        </div>
+
+        <div class="download-info-pill" style="margin-top:20px;">
+          <i class="fa-solid fa-shield-halved"></i> <strong>Credenciales Rápidas:</strong> Usuario: <code>AdminCepci01</code> &bull; Contraseña: <code>AdministracionCepci</code> &bull; Admin: <code>CepciAdministracion01CEPCI</code> &bull; Modo Oculto: <kbd>Alt</kbd> + <kbd>cepci</kbd>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       FOOTER
+       ========================================================================== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <img src="img/logocepci.jpg" alt="Logo CEPCI" style="height:46px; border-radius:8px;" />
+          <div>
+            <div style="font-weight:bold; color:#fff; font-size:1.1rem;">Sistema CEPCI</div>
+            <div style="font-size:0.78rem; color:var(--accent-gold);">Plataforma Integral de Gestión Educativa &bull; Consorcio CEPCI</div>
+          </div>
+        </div>
+
+        <div style="font-size:0.85rem; color:var(--text-muted); text-align:right;">
+          <div><i class="fa-solid fa-circle" style="color:#27c93f; font-size:0.6rem;"></i> Versión Estable 2026.1 &bull; Producción</div>
+          <div style="color:var(--text-dim); margin-top:4px;">
+            <a href="https://drive.google.com/file/d/15YnidZgQ7UVMdF7bFX5N4qv6pSGVaUS1/view?usp=drive_link" target="_blank" rel="noopener noreferrer" style="color:var(--accent-gold); text-decoration:underline;">
+              <i class="fa-solid fa-download"></i> Enlace de Descarga Google Drive
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-copy">
+        &copy; 2026 Consorcio Educativo CEPCI - Todos los derechos reservados. Página oficial de presentación y exhibición del software.
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       LIGHTBOX MODAL FOR REAL SCREENSHOTS
+       ========================================================================== -->
+  <div class="lightbox-modal" id="lightboxModal">
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="lightboxClose" aria-label="Cerrar">&times;</button>
+      <img src="" alt="Captura de Pantalla Ampliada" class="lightbox-img" id="lightboxImg" />
+      <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="script.js"></script>
+</body>
+</html>
